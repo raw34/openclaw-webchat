@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import type { OpenClawClientOptions, Message } from '@openclaw/chat-core';
+import type { OpenClawClientOptions, Message } from '@raw34/chat-core';
 import { useOpenClawChat } from '../hooks/useOpenClawChat';
 
 export interface ChatWidgetProps extends OpenClawClientOptions {

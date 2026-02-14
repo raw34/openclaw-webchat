@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue';
-import type { OpenClawClientOptions, Message } from '@openclaw/chat-core';
+import type { OpenClawClientOptions, Message } from '@raw34/chat-core';
 import { useOpenClawChat } from '../composables/useOpenClawChat';
 
 export interface ChatWidgetProps {

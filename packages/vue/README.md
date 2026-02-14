@@ -1,15 +1,15 @@
-# @openclaw/chat-vue
+# @raw34/chat-vue
 
 Vue 3 composables and components for OpenClaw Gateway. Build AI chat interfaces with ease.
 
 ## Installation
 
 ```bash
-npm install @openclaw/chat-vue
+npm install @raw34/chat-vue
 # or
-pnpm add @openclaw/chat-vue
+pnpm add @raw34/chat-vue
 # or
-yarn add @openclaw/chat-vue
+yarn add @raw34/chat-vue
 ```
 
 ## Quick Start
@@ -20,8 +20,8 @@ Drop-in chat widget with built-in UI:
 
 ```vue
 <script setup>
-import { ChatWidget } from '@openclaw/chat-vue';
-import '@openclaw/chat-vue/style.css';  // Required for styles
+import { ChatWidget } from '@raw34/chat-vue';
+import '@raw34/chat-vue/style.css';  // Required for styles
 </script>
 
 <template>
@@ -44,7 +44,7 @@ Build your own chat interface:
 ```vue
 <script setup>
 import { ref } from 'vue';
-import { useOpenClawChat } from '@openclaw/chat-vue';
+import { useOpenClawChat } from '@raw34/chat-vue';
 
 const {
   messages,
@@ -250,7 +250,7 @@ interface UseOpenClawChatOptions {
 
 ```vue
 <script setup>
-import { useOpenClawChat } from '@openclaw/chat-vue';
+import { useOpenClawChat } from '@raw34/chat-vue';
 
 const { isConnected, connect, disconnect } = useOpenClawChat({
   gateway: 'wss://your-gateway.example.com/ws',
@@ -270,7 +270,7 @@ const { isConnected, connect, disconnect } = useOpenClawChat({
 ```vue
 <script setup>
 import { ref, watch } from 'vue';
-import { useOpenClawChat } from '@openclaw/chat-vue';
+import { useOpenClawChat } from '@raw34/chat-vue';
 
 const gateway = ref('wss://gateway1.example.com/ws');
 
@@ -293,7 +293,7 @@ import type {
   OpenClawClientOptions,
   Message,
   ConnectionState,
-} from '@openclaw/chat-vue';
+} from '@raw34/chat-vue';
 ```
 
 ## CSS Import
@@ -302,10 +302,10 @@ The ChatWidget component uses scoped CSS. You **must** import the styles:
 
 ```typescript
 // Option 1: In your main entry file
-import '@openclaw/chat-vue/style.css';
+import '@raw34/chat-vue/style.css';
 
 // Option 2: In your component
-import '@openclaw/chat-vue/dist/index.css';
+import '@raw34/chat-vue/dist/index.css';
 ```
 
 If styles are not showing, make sure you've imported the CSS file.

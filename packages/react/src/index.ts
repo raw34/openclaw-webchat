@@ -11,4 +11,4 @@ export type {
   OpenClawClientOptions,
   Message,
   ConnectionState,
-} from '@openclaw/chat-core';
+} from '@raw34/chat-core';
