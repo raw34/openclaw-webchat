@@ -46,21 +46,15 @@ export interface ConnectChallenge {
 }
 
 export interface ConnectParams {
-  protocol: {
-    version: string;
-    minVersion?: string;
-  };
+  minProtocol: number;
+  maxProtocol: number;
   client: {
-    name: string;
+    id: string;
     version: string;
     platform: string;
+    mode: 'operator' | 'node';
   };
-  role: 'operator' | 'node';
   scopes: string[];
-  device?: {
-    id: string;
-    name?: string;
-  };
   auth?: {
     token?: string;
     password?: string;
@@ -69,12 +63,22 @@ export interface ConnectParams {
 }
 
 export interface HelloOkPayload {
-  protocol: {
+  type: 'hello-ok';
+  protocol: number;
+  server: {
     version: string;
+    host?: string;
+    connId?: string;
   };
-  gateway: {
-    version: string;
-    name?: string;
+  features?: {
+    methods?: string[];
+    events?: string[];
+  };
+  snapshot?: {
+    sessionDefaults?: {
+      mainSessionKey?: string;
+      defaultAgentId?: string;
+    };
   };
   auth?: {
     deviceToken?: string;
@@ -92,7 +96,9 @@ export interface Message {
 }
 
 export interface ChatSendParams {
-  content: string;
+  sessionKey: string;
+  message: string;
+  idempotencyKey: string;
   metadata?: Record<string, unknown>;
 }
 
@@ -155,6 +161,9 @@ export interface OpenClawClientOptions {
 
   /** Debug logging (default: false) */
   debug?: boolean;
+
+  /** Session key for chat (auto-detected from connection if not provided) */
+  sessionKey?: string;
 }
 
 // ============ Client State ============

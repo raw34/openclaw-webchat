@@ -1,4 +1,4 @@
-import { ref, shallowRef, onMounted, onUnmounted, computed } from 'vue';
+import { ref, shallowRef, onMounted, onUnmounted, computed, watch, toRefs } from 'vue';
 import type { Ref, ComputedRef } from 'vue';
 import {
   OpenClawClient,
@@ -102,7 +102,18 @@ export function useOpenClawChat(options: UseOpenClawChatOptions): UseOpenClawCha
 
   const isConnected = computed(() => connectionState.value === 'connected');
 
-  onMounted(() => {
+  function initializeClient() {
+    // Skip if no gateway provided
+    if (!clientOptions.gateway) {
+      return;
+    }
+
+    // Cleanup existing client
+    if (client.value) {
+      client.value.disconnect();
+      client.value = null;
+    }
+
     const newClient = new OpenClawClient(clientOptions);
     client.value = newClient;
 
@@ -156,6 +167,10 @@ export function useOpenClawChat(options: UseOpenClawChatOptions): UseOpenClawCha
         error.value = err;
       });
     }
+  }
+
+  onMounted(() => {
+    initializeClient();
   });
 
   onUnmounted(() => {

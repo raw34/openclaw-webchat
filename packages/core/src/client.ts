@@ -77,10 +77,12 @@ export class OpenClawClient {
   };
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private deviceToken: string | undefined;
+  private sessionKey: string | undefined;
 
   constructor(options: OpenClawClientOptions) {
     this.options = { ...DEFAULT_OPTIONS, ...options };
     this.deviceToken = options.deviceToken;
+    this.sessionKey = options.sessionKey;
   }
 
   // ============ Connection ============
@@ -111,6 +113,7 @@ export class OpenClawClient {
 
         this.ws.onmessage = async (event) => {
           try {
+            this.log('Received raw message:', event.data);
             const frame = JSON.parse(event.data) as Frame;
             await this.handleFrame(frame, resolve, reject, timeout);
           } catch (err) {
@@ -171,7 +174,15 @@ export class OpenClawClient {
    * Send a message to the AI
    */
   async send(content: string, metadata?: Record<string, unknown>): Promise<void> {
-    const params: ChatSendParams = { content, metadata };
+    if (!this.sessionKey) {
+      throw new Error('No session key available. Set sessionKey in options or wait for connection.');
+    }
+    const params: ChatSendParams = {
+      sessionKey: this.sessionKey,
+      message: content,
+      idempotencyKey: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      metadata,
+    };
     await this.request('chat.send', params);
   }
 
@@ -286,13 +297,19 @@ export class OpenClawClient {
     }
 
     // Check for hello-ok (connection established)
-    if (frame.ok && frame.payload && 'gateway' in (frame.payload as HelloOkPayload)) {
-      const payload = frame.payload as HelloOkPayload;
-      this.log('Connected to gateway:', payload.gateway.name || payload.gateway.version);
+    const payload = frame.payload as HelloOkPayload;
+    if (frame.ok && payload && payload.type === 'hello-ok') {
+      this.log('Connected to gateway:', payload.server?.host || payload.server?.version);
 
       // Save device token if provided
       if (payload.auth?.deviceToken) {
         this.deviceToken = payload.auth.deviceToken;
+      }
+
+      // Save session key from snapshot if not already set
+      if (!this.sessionKey && payload.snapshot?.sessionDefaults?.mainSessionKey) {
+        this.sessionKey = payload.snapshot.sessionDefaults.mainSessionKey;
+        this.log('Using session key:', this.sessionKey);
       }
 
       this.setState({ connectionState: 'connected', reconnectAttempts: 0 });
@@ -319,6 +336,12 @@ export class OpenClawClient {
 
   private handleEvent(frame: EventFrame): void {
     switch (frame.event) {
+      case 'connect.challenge':
+        // Gateway sends connect.challenge as an event, handle it here
+        this.log('Received challenge event, sending connect request...');
+        this.sendConnectRequest();
+        break;
+
       case 'message':
         const msgEvent = frame.payload as MessageEvent;
         this.emit('message', msgEvent.message);
@@ -344,16 +367,14 @@ export class OpenClawClient {
 
   private async sendConnectRequest(): Promise<void> {
     const params: ConnectParams = {
-      protocol: {
-        version: '1.0',
-        minVersion: '1.0',
-      },
+      minProtocol: 3,
+      maxProtocol: 3,
       client: {
-        name: this.options.clientName,
+        id: 'webchat',
         version: this.options.clientVersion,
         platform: typeof window !== 'undefined' ? 'browser' : 'node',
+        mode: 'node',
       },
-      role: 'operator',
       scopes: ['operator.read', 'operator.write'],
       auth: {},
     };
@@ -405,8 +426,9 @@ export class OpenClawClient {
 
   private sendFrame(frame: Frame): void {
     if (this.ws?.readyState === WebSocket.OPEN) {
-      this.log('Sending frame:', frame.type, 'method' in frame ? frame.method : '');
-      this.ws.send(JSON.stringify(frame));
+      const json = JSON.stringify(frame);
+      this.log('Sending frame:', frame.type, 'method' in frame ? frame.method : '', json);
+      this.ws.send(json);
     } else {
       this.log('Cannot send frame, WebSocket not open');
     }

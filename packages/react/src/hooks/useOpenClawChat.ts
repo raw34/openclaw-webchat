@@ -96,8 +96,13 @@ export function useOpenClawChat(options: UseOpenClawChatOptions): UseOpenClawCha
   const [streamingContent, setStreamingContent] = useState('');
   const [error, setError] = useState<Error | null>(null);
 
-  // Initialize client
+  // Initialize client when gateway changes
   useEffect(() => {
+    // Skip if no gateway provided
+    if (!clientOptions.gateway) {
+      return;
+    }
+
     const client = new OpenClawClient(clientOptions);
     clientRef.current = client;
 
@@ -157,7 +162,7 @@ export function useOpenClawChat(options: UseOpenClawChatOptions): UseOpenClawCha
       client.disconnect();
       clientRef.current = null;
     };
-  }, []);  // Only run once on mount
+  }, [clientOptions.gateway, clientOptions.token, autoConnect]);  // Re-initialize when gateway or token changes
 
   const connect = useCallback(async () => {
     if (!clientRef.current) return;
