@@ -11,9 +11,7 @@
 
 ## 效果展示
 
-| React | Vue |
-|-------|-----|
-| ![React Demo](./docs/images/demo-react-light.png) | ![Vue Demo](./docs/images/demo-vue-light.png) |
+![Demo](./docs/images/demo.gif)
 
 ## 特性
 
