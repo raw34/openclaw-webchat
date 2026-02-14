@@ -9,6 +9,12 @@
 
 可嵌入式 WebChat SDK，用于连接 [OpenClaw](https://openclaw.ai) Gateway。为你的应用快速构建 AI 聊天界面。
 
+## 效果展示
+
+| React | Vue |
+|-------|-----|
+| ![React Demo](./docs/images/demo-react-light.png) | ![Vue Demo](./docs/images/demo-vue-light.png) |
+
 ## 特性
 
 - **开箱即用** - 提供 React 和 Vue 的 ChatWidget 组件，一行代码接入

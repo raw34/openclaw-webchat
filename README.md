@@ -9,6 +9,12 @@
 
 Embeddable WebChat SDK for [OpenClaw](https://openclaw.ai) Gateway. Build custom AI chat interfaces for your applications.
 
+## Screenshots
+
+| React | Vue |
+|-------|-----|
+| ![React Demo](./docs/images/demo-react-light.png) | ![Vue Demo](./docs/images/demo-vue-light.png) |
+
 ## Features
 
 - **Ready-to-use Components** - Drop-in ChatWidget for React and Vue
