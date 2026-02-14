@@ -5,6 +5,10 @@ on:
     types: [published]
   workflow_dispatch:
     inputs:
+      version:
+        description: 'Version to publish (e.g., 0.2.0)'
+        required: false
+        type: string
       dry_run:
         description: 'Dry run (no actual publish)'
         required: false
@@ -21,6 +25,24 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Extract version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" == "release" ]; then
+            # Extract version from release tag (remove 'v' prefix if present)
+            VERSION="${{ github.event.release.tag_name }}"
+            VERSION="${VERSION#v}"
+          elif [ -n "${{ inputs.version }}" ]; then
+            # Use manually provided version
+            VERSION="${{ inputs.version }}"
+            VERSION="${VERSION#v}"
+          else
+            # Fallback to current version in package.json
+            VERSION=$(node -p "require('./packages/core/package.json').version")
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Publishing version: $VERSION"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -45,6 +67,22 @@ jobs:
           key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
+
+      - name: Update package versions
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          echo "Updating all packages to version $VERSION"
+
+          # Update each package.json
+          for pkg in packages/core packages/react packages/vue; do
+            node -e "
+              const fs = require('fs');
+              const pkg = JSON.parse(fs.readFileSync('$pkg/package.json', 'utf8'));
+              pkg.version = '$VERSION';
+              fs.writeFileSync('$pkg/package.json', JSON.stringify(pkg, null, 2) + '\n');
+            "
+            echo "Updated $pkg to $VERSION"
+          done
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
