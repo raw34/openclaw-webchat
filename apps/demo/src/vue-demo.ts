@@ -1,12 +1,15 @@
 import { createApp, ref, defineComponent, h } from 'vue';
 import { ChatWidget } from '@openclaw/chat-vue';
 
+const DEFAULT_GATEWAY = import.meta.env.VITE_GATEWAY_URL || 'ws://localhost:18789';
+const DEFAULT_TOKEN = import.meta.env.VITE_TOKEN || '';
+
 const App = defineComponent({
   setup() {
     const gateway = ref(
-      localStorage.getItem('openclaw-gateway') || 'ws://localhost:18789'
+      localStorage.getItem('openclaw-gateway') || DEFAULT_GATEWAY
     );
-    const token = ref(localStorage.getItem('openclaw-token') || '');
+    const token = ref(localStorage.getItem('openclaw-token') || DEFAULT_TOKEN);
     const isConfigured = ref(false);
 
     function handleSubmit(e: Event) {

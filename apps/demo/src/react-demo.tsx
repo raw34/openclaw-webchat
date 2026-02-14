@@ -2,12 +2,15 @@ import React, { useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { ChatWidget } from '@openclaw/chat-react';
 
+const DEFAULT_GATEWAY = import.meta.env.VITE_GATEWAY_URL || 'ws://localhost:18789';
+const DEFAULT_TOKEN = import.meta.env.VITE_TOKEN || '';
+
 function App() {
   const [gateway, setGateway] = useState(
-    localStorage.getItem('openclaw-gateway') || 'ws://localhost:18789'
+    localStorage.getItem('openclaw-gateway') || DEFAULT_GATEWAY
   );
   const [token, setToken] = useState(
-    localStorage.getItem('openclaw-token') || ''
+    localStorage.getItem('openclaw-token') || DEFAULT_TOKEN
   );
   const [isConfigured, setIsConfigured] = useState(false);
 
