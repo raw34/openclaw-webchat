@@ -278,6 +278,13 @@ export class OpenClawClient {
     connectReject?: (reason: Error) => void,
     connectTimeout?: ReturnType<typeof setTimeout>
   ): void {
+    // Handle connection error
+    if (!frame.ok && connectReject) {
+      if (connectTimeout) clearTimeout(connectTimeout);
+      connectReject(new Error(frame.error?.message || 'Connection failed'));
+      return;
+    }
+
     // Check for hello-ok (connection established)
     if (frame.ok && frame.payload && 'gateway' in (frame.payload as HelloOkPayload)) {
       const payload = frame.payload as HelloOkPayload;
