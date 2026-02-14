@@ -32,8 +32,13 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/user/openclaw-webchat"
+    "url": "git+https://github.com/raw34/openclaw-webchat.git",
+    "directory": "packages/core"
   },
+  "bugs": {
+    "url": "https://github.com/raw34/openclaw-webchat/issues"
+  },
+  "homepage": "https://github.com/raw34/openclaw-webchat/tree/main/packages/core#readme",
   "devDependencies": {
     "tsup": "^8.3.0",
     "typescript": "^5.7.0"

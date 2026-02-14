@@ -30,6 +30,15 @@
   ],
   "author": "Randy",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/raw34/openclaw-webchat.git",
+    "directory": "packages/vue"
+  },
+  "bugs": {
+    "url": "https://github.com/raw34/openclaw-webchat/issues"
+  },
+  "homepage": "https://github.com/raw34/openclaw-webchat/tree/main/packages/vue#readme",
   "peerDependencies": {
     "vue": "^3.4.0"
   },

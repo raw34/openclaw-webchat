@@ -5,6 +5,14 @@
   "description": "Embeddable WebChat SDK for OpenClaw Gateway",
   "author": "Randy",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/raw34/openclaw-webchat.git"
+  },
+  "bugs": {
+    "url": "https://github.com/raw34/openclaw-webchat/issues"
+  },
+  "homepage": "https://github.com/raw34/openclaw-webchat#readme",
   "scripts": {
     "build": "pnpm -r build",
     "dev": "pnpm -r --parallel dev",

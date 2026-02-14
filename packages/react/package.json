@@ -30,6 +30,15 @@
   ],
   "author": "Randy",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/raw34/openclaw-webchat.git",
+    "directory": "packages/react"
+  },
+  "bugs": {
+    "url": "https://github.com/raw34/openclaw-webchat/issues"
+  },
+  "homepage": "https://github.com/raw34/openclaw-webchat/tree/main/packages/react#readme",
   "peerDependencies": {
     "react": "^18.0.0 || ^19.0.0",
     "react-dom": "^18.0.0 || ^19.0.0"
