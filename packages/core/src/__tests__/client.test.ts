@@ -31,12 +31,11 @@ describe('OpenClawClient', () => {
       // Simulate connection open
       ws.simulateOpen();
 
-      // Server sends challenge
+      // Server sends challenge (as event type per Gateway protocol)
       ws.simulateMessage({
-        type: 'req',
-        id: 'challenge-1',
-        method: 'connect.challenge',
-        params: { nonce: 'abc123', timestamp: Date.now() },
+        type: 'event',
+        event: 'connect.challenge',
+        payload: { nonce: 'abc123', timestamp: Date.now() },
       });
 
       // Client should send connect request
@@ -61,8 +60,12 @@ describe('OpenClawClient', () => {
         id: connectReq.id,
         ok: true,
         payload: {
-          protocol: { version: '1.0' },
-          gateway: { version: '1.0.0', name: 'Test Gateway' },
+          type: 'hello-ok',
+          protocol: 3,
+          server: { version: '1.0.0', host: 'test-gateway' },
+          snapshot: {
+            sessionDefaults: { mainSessionKey: 'test-session-key' },
+          },
         },
       });
 
@@ -102,10 +105,9 @@ describe('OpenClawClient', () => {
 
       // Server sends challenge
       ws.simulateMessage({
-        type: 'req',
-        id: 'challenge-1',
-        method: 'connect.challenge',
-        params: { nonce: 'abc123', timestamp: Date.now() },
+        type: 'event',
+        event: 'connect.challenge',
+        payload: { nonce: 'abc123', timestamp: Date.now() },
       });
 
       await vi.waitFor(() => ws.getSentMessages().length > 0);
@@ -137,10 +139,9 @@ describe('OpenClawClient', () => {
 
       ws.simulateOpen();
       ws.simulateMessage({
-        type: 'req',
-        id: 'challenge-1',
-        method: 'connect.challenge',
-        params: { nonce: 'abc', timestamp: Date.now() },
+        type: 'event',
+        event: 'connect.challenge',
+        payload: { nonce: 'abc', timestamp: Date.now() },
       });
 
       await vi.waitFor(() => ws.getSentMessages().length > 0);
@@ -150,8 +151,12 @@ describe('OpenClawClient', () => {
         id: (ws.getLastSentMessage() as { id: string }).id,
         ok: true,
         payload: {
-          protocol: { version: '1.0' },
-          gateway: { version: '1.0.0' },
+          type: 'hello-ok',
+          protocol: 3,
+          server: { version: '1.0.0', host: 'test' },
+          snapshot: {
+            sessionDefaults: { mainSessionKey: 'test-session-key' },
+          },
         },
       });
 
@@ -173,9 +178,14 @@ describe('OpenClawClient', () => {
 
       const sendReq = ws.getSentMessages().find(
         (m) => (m as { method?: string }).method === 'chat.send'
-      ) as { id: string; params: { content: string } };
+      ) as {
+        id: string;
+        params: { sessionKey: string; message: string; idempotencyKey: string };
+      };
 
-      expect(sendReq.params.content).toBe('Hello, AI!');
+      expect(sendReq.params.message).toBe('Hello, AI!');
+      expect(sendReq.params.sessionKey).toBe('test-session-key');
+      expect(sendReq.params.idempotencyKey).toBeDefined();
 
       // Server acknowledges
       ws.simulateMessage({
@@ -216,7 +226,7 @@ describe('OpenClawClient', () => {
       );
     });
 
-    it('should handle streaming response', async () => {
+    it('should handle streaming response (legacy stream.* events)', async () => {
       const { client, ws } = await createConnectedClient();
 
       const streamStartHandler = vi.fn();
@@ -254,6 +264,84 @@ describe('OpenClawClient', () => {
       expect(streamChunkHandler).toHaveBeenCalledWith('msg-1', ' World!');
       expect(streamEndHandler).toHaveBeenCalledWith('msg-1');
     });
+
+    it('should handle chat event streaming (Gateway protocol)', async () => {
+      const { client, ws } = await createConnectedClient();
+
+      const streamStartHandler = vi.fn();
+      const streamChunkHandler = vi.fn();
+      const streamEndHandler = vi.fn();
+      const messageHandler = vi.fn();
+
+      client.on('streamStart', streamStartHandler);
+      client.on('streamChunk', streamChunkHandler);
+      client.on('streamEnd', streamEndHandler);
+      client.on('message', messageHandler);
+
+      // First delta event - starts streaming
+      ws.simulateMessage({
+        type: 'event',
+        event: 'chat',
+        payload: {
+          runId: 'run-123',
+          sessionKey: 'test-session-key',
+          seq: 1,
+          state: 'delta',
+          message: {
+            role: 'assistant',
+            content: [{ type: 'text', text: 'Hello' }],
+          },
+        },
+      });
+
+      expect(streamStartHandler).toHaveBeenCalledWith('run-123');
+      expect(streamChunkHandler).toHaveBeenCalledWith('run-123', 'Hello');
+
+      // Second delta event - cumulative content
+      ws.simulateMessage({
+        type: 'event',
+        event: 'chat',
+        payload: {
+          runId: 'run-123',
+          sessionKey: 'test-session-key',
+          seq: 2,
+          state: 'delta',
+          message: {
+            role: 'assistant',
+            content: [{ type: 'text', text: 'Hello World' }],
+          },
+        },
+      });
+
+      // Should only emit the new chunk " World" (delta from cumulative)
+      expect(streamChunkHandler).toHaveBeenCalledWith('run-123', ' World');
+
+      // Final event - completes streaming
+      ws.simulateMessage({
+        type: 'event',
+        event: 'chat',
+        payload: {
+          runId: 'run-123',
+          sessionKey: 'test-session-key',
+          seq: 3,
+          state: 'final',
+          message: {
+            role: 'assistant',
+            content: [{ type: 'text', text: 'Hello World!' }],
+            timestamp: 1234567890,
+          },
+        },
+      });
+
+      expect(streamEndHandler).toHaveBeenCalledWith('run-123');
+      expect(messageHandler).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 'run-123',
+          role: 'assistant',
+          content: 'Hello World!',
+        })
+      );
+    });
   });
 
   describe('reconnection', () => {
@@ -274,10 +362,9 @@ describe('OpenClawClient', () => {
 
       ws.simulateOpen();
       ws.simulateMessage({
-        type: 'req',
-        id: 'c1',
-        method: 'connect.challenge',
-        params: { nonce: 'abc', timestamp: Date.now() },
+        type: 'event',
+        event: 'connect.challenge',
+        payload: { nonce: 'abc', timestamp: Date.now() },
       });
 
       await vi.waitFor(() => ws.getSentMessages().length > 0);
@@ -287,8 +374,12 @@ describe('OpenClawClient', () => {
         id: (ws.getLastSentMessage() as { id: string }).id,
         ok: true,
         payload: {
-          protocol: { version: '1.0' },
-          gateway: { version: '1.0.0' },
+          type: 'hello-ok',
+          protocol: 3,
+          server: { version: '1.0.0', host: 'test' },
+          snapshot: {
+            sessionDefaults: { mainSessionKey: 'test-session-key' },
+          },
         },
       });
 
@@ -320,10 +411,9 @@ describe('OpenClawClient', () => {
 
       ws.simulateOpen();
       ws.simulateMessage({
-        type: 'req',
-        id: 'c1',
-        method: 'connect.challenge',
-        params: { nonce: 'abc', timestamp: Date.now() },
+        type: 'event',
+        event: 'connect.challenge',
+        payload: { nonce: 'abc', timestamp: Date.now() },
       });
 
       await vi.waitFor(() => ws.getSentMessages().length > 0);
@@ -333,8 +423,12 @@ describe('OpenClawClient', () => {
         id: (ws.getLastSentMessage() as { id: string }).id,
         ok: true,
         payload: {
-          protocol: { version: '1.0' },
-          gateway: { version: '1.0.0' },
+          type: 'hello-ok',
+          protocol: 3,
+          server: { version: '1.0.0', host: 'test' },
+          snapshot: {
+            sessionDefaults: { mainSessionKey: 'test-session-key' },
+          },
         },
       });
 
