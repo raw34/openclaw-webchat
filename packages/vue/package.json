@@ -1,5 +1,5 @@
 {
-  "name": "@raw34/chat-vue",
+  "name": "@raw34/openclaw-webchat-vue",
   "version": "0.1.0",
   "description": "Vue components and composables for OpenClaw WebChat",
   "type": "module",
@@ -45,7 +45,7 @@
     "vue": "^3.4.0"
   },
   "dependencies": {
-    "@raw34/chat-core": "workspace:*"
+    "@raw34/openclaw-webchat": "workspace:*"
   },
   "devDependencies": {
     "esbuild-plugin-vue3": "^0.5.1",

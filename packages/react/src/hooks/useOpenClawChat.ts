@@ -4,7 +4,7 @@ import {
   OpenClawClientOptions,
   Message,
   ConnectionState,
-} from '@raw34/chat-core';
+} from '@raw34/openclaw-webchat';
 
 export interface UseOpenClawChatOptions extends OpenClawClientOptions {
   /** Auto-connect on mount (default: true) */

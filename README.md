@@ -6,20 +6,20 @@ Embeddable WebChat SDK for [OpenClaw](https://openclaw.ai) Gateway. Build custom
 
 | Package | Description |
 |---------|-------------|
-| [`@raw34/chat-core`](./packages/core) | Core WebSocket client (framework-agnostic) |
-| [`@raw34/chat-react`](./packages/react) | React hooks and components |
-| [`@raw34/chat-vue`](./packages/vue) | Vue composables and components |
+| [`@raw34/openclaw-webchat`](./packages/core) | Core WebSocket client (framework-agnostic) |
+| [`@raw34/openclaw-webchat-react`](./packages/react) | React hooks and components |
+| [`@raw34/openclaw-webchat-vue`](./packages/vue) | Vue composables and components |
 
 ## Quick Start
 
 ### React
 
 ```bash
-npm install @raw34/chat-react
+npm install @raw34/openclaw-webchat-react
 ```
 
 ```tsx
-import { ChatWidget } from '@raw34/chat-react';
+import { ChatWidget } from '@raw34/openclaw-webchat-react';
 
 function App() {
   return (
@@ -37,7 +37,7 @@ function App() {
 Or use the hook for custom UI:
 
 ```tsx
-import { useOpenClawChat } from '@raw34/chat-react';
+import { useOpenClawChat } from '@raw34/openclaw-webchat-react';
 
 function CustomChat() {
   const { messages, isConnected, isLoading, streamingContent, send } = useOpenClawChat({
@@ -70,13 +70,13 @@ function CustomChat() {
 ### Vue
 
 ```bash
-npm install @raw34/chat-vue
+npm install @raw34/openclaw-webchat-vue
 ```
 
 ```vue
 <script setup>
-import { ChatWidget } from '@raw34/chat-vue';
-import '@raw34/chat-vue/style.css';  // Required for styles
+import { ChatWidget } from '@raw34/openclaw-webchat-vue';
+import '@raw34/openclaw-webchat-vue/style.css';  // Required for styles
 </script>
 
 <template>
@@ -95,7 +95,7 @@ Or use the composable for custom UI:
 ```vue
 <script setup>
 import { ref } from 'vue';
-import { useOpenClawChat } from '@raw34/chat-vue';
+import { useOpenClawChat } from '@raw34/openclaw-webchat-vue';
 
 const { messages, isConnected, isLoading, streamingContent, send } = useOpenClawChat({
   gateway: 'wss://ai.example.com:18789',
@@ -124,11 +124,11 @@ function handleSend() {
 ### Core (Vanilla JS / Any Framework)
 
 ```bash
-npm install @raw34/chat-core
+npm install @raw34/openclaw-webchat
 ```
 
 ```typescript
-import { OpenClawClient } from '@raw34/chat-core';
+import { OpenClawClient } from '@raw34/openclaw-webchat';
 
 const client = new OpenClawClient({
   gateway: 'wss://ai.example.com:18789',
