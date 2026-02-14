@@ -75,6 +75,25 @@ npm install @openclaw/chat-vue
 
 ```vue
 <script setup>
+import { ChatWidget } from '@openclaw/chat-vue';
+import '@openclaw/chat-vue/style.css';  // Required for styles
+</script>
+
+<template>
+  <ChatWidget
+    gateway="wss://ai.example.com:18789"
+    token="your-token"
+    position="bottom-right"
+    theme="light"
+    title="AI Assistant"
+  />
+</template>
+```
+
+Or use the composable for custom UI:
+
+```vue
+<script setup>
 import { ref } from 'vue';
 import { useOpenClawChat } from '@openclaw/chat-vue';
 
