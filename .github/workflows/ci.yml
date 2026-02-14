@@ -41,5 +41,8 @@ jobs:
       - name: Build packages
         run: pnpm build
 
+      - name: Check version consistency
+        run: node scripts/check-versions.js
+
       - name: Run tests
         run: pnpm test
