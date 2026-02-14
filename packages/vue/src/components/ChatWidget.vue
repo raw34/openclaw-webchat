@@ -3,12 +3,27 @@ import { ref, computed, watch, nextTick } from 'vue';
 import type { OpenClawClientOptions, Message } from '@openclaw/chat-core';
 import { useOpenClawChat } from '../composables/useOpenClawChat';
 
-export interface ChatWidgetProps extends /* @vue-ignore */ OpenClawClientOptions {
+export interface ChatWidgetProps {
+  // OpenClawClientOptions - explicitly defined for Vue props
+  gateway: string;
+  token?: string;
+  password?: string;
+  deviceToken?: string;
+  clientName?: string;
+  clientVersion?: string;
+  reconnect?: boolean;
+  reconnectInterval?: number;
+  maxReconnectAttempts?: number;
+  connectionTimeout?: number;
+  debug?: boolean;
+  sessionKey?: string;
+  // Widget-specific options
   position?: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left' | 'inline';
   theme?: 'light' | 'dark' | 'auto';
   title?: string;
   placeholder?: string;
   defaultOpen?: boolean;
+  autoConnect?: boolean;
 }
 
 const props = withDefaults(defineProps<ChatWidgetProps>(), {
@@ -17,6 +32,7 @@ const props = withDefaults(defineProps<ChatWidgetProps>(), {
   title: 'AI Assistant',
   placeholder: 'Type a message...',
   defaultOpen: false,
+  autoConnect: true,
 });
 
 const emit = defineEmits<{
@@ -33,6 +49,25 @@ const isOpen = ref(props.defaultOpen);
 const input = ref('');
 const messagesEndRef = ref<HTMLDivElement | null>(null);
 
+// Explicitly construct client options from props, filtering out undefined values
+const clientOptions: OpenClawClientOptions & { autoConnect?: boolean } = Object.fromEntries(
+  Object.entries({
+    gateway: props.gateway,
+    token: props.token,
+    password: props.password,
+    deviceToken: props.deviceToken,
+    clientName: props.clientName,
+    clientVersion: props.clientVersion,
+    reconnect: props.reconnect,
+    reconnectInterval: props.reconnectInterval,
+    maxReconnectAttempts: props.maxReconnectAttempts,
+    connectionTimeout: props.connectionTimeout,
+    debug: props.debug,
+    sessionKey: props.sessionKey,
+    autoConnect: props.autoConnect,
+  }).filter(([_, v]) => v !== undefined)
+) as OpenClawClientOptions & { autoConnect?: boolean };
+
 const {
   messages,
   isConnected,
@@ -40,7 +75,7 @@ const {
   streamingContent,
   error,
   send: clientSend,
-} = useOpenClawChat(props);
+} = useOpenClawChat(clientOptions);
 
 const themes = {
   light: {
