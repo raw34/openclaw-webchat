@@ -1,5 +1,5 @@
 {
-  "name": "@openclaw/chat-core",
+  "name": "@raw34/chat-core",
   "version": "0.1.0",
   "description": "Core WebSocket client for OpenClaw Gateway",
   "type": "module",

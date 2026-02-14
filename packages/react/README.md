@@ -1,15 +1,15 @@
-# @openclaw/chat-react
+# @raw34/chat-react
 
 React hooks and components for OpenClaw Gateway. Build AI chat interfaces with ease.
 
 ## Installation
 
 ```bash
-npm install @openclaw/chat-react
+npm install @raw34/chat-react
 # or
-pnpm add @openclaw/chat-react
+pnpm add @raw34/chat-react
 # or
-yarn add @openclaw/chat-react
+yarn add @raw34/chat-react
 ```
 
 ## Quick Start
@@ -19,7 +19,7 @@ yarn add @openclaw/chat-react
 Drop-in chat widget with built-in UI:
 
 ```tsx
-import { ChatWidget } from '@openclaw/chat-react';
+import { ChatWidget } from '@raw34/chat-react';
 
 function App() {
   return (
@@ -39,7 +39,7 @@ function App() {
 Build your own chat interface:
 
 ```tsx
-import { useOpenClawChat } from '@openclaw/chat-react';
+import { useOpenClawChat } from '@raw34/chat-react';
 
 function CustomChat() {
   const {
@@ -264,7 +264,7 @@ import type {
   OpenClawClientOptions,
   Message,
   ConnectionState,
-} from '@openclaw/chat-react';
+} from '@raw34/chat-react';
 ```
 
 ## License

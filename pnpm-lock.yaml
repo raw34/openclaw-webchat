@@ -29,13 +29,13 @@ importers:
 
   apps/demo:
     dependencies:
-      '@openclaw/chat-core':
+      '@raw34/chat-core':
         specifier: workspace:*
         version: link:../../packages/core
-      '@openclaw/chat-react':
+      '@raw34/chat-react':
         specifier: workspace:*
         version: link:../../packages/react
-      '@openclaw/chat-vue':
+      '@raw34/chat-vue':
         specifier: workspace:*
         version: link:../../packages/vue
       react:
@@ -78,7 +78,7 @@ importers:
 
   packages/react:
     dependencies:
-      '@openclaw/chat-core':
+      '@raw34/chat-core':
         specifier: workspace:*
         version: link:../core
     devDependencies:
@@ -103,7 +103,7 @@ importers:
 
   packages/vue:
     dependencies:
-      '@openclaw/chat-core':
+      '@raw34/chat-core':
         specifier: workspace:*
         version: link:../core
     devDependencies:
