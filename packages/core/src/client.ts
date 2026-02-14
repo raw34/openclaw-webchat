@@ -360,8 +360,85 @@ export class OpenClawClient {
         }
         break;
 
+      case 'chat':
+        // OpenClaw Gateway uses 'chat' event for streaming responses
+        this.handleChatEvent(frame.payload);
+        break;
+
+      case 'agent':
+        // Agent status updates (typing, thinking, etc.)
+        this.log('Agent event:', frame.payload);
+        break;
+
+      case 'health':
+      case 'tick':
+      case 'heartbeat':
+      case 'presence':
+        // System events, ignore silently
+        break;
+
       default:
         this.log('Unknown event:', frame.event);
+    }
+  }
+
+  private currentStreamingMessageId: string | null = null;
+  private lastStreamedContent: string = '';
+
+  private handleChatEvent(payload: unknown): void {
+    const chatPayload = payload as {
+      runId?: string;
+      sessionKey?: string;
+      seq?: number;
+      state?: 'delta' | 'final';
+      message?: {
+        role?: string;
+        content?: Array<{ type: string; text: string }>;
+        timestamp?: number;
+      };
+    };
+
+    this.log('Chat event:', chatPayload.state, 'seq:', chatPayload.seq);
+
+    const messageId = chatPayload.runId || 'stream';
+    const contentBlocks = chatPayload.message?.content || [];
+    const fullContent = contentBlocks
+      .filter((block) => block.type === 'text')
+      .map((block) => block.text)
+      .join('');
+
+    // Start new streaming session if needed
+    if (!this.currentStreamingMessageId && chatPayload.state === 'delta') {
+      this.currentStreamingMessageId = messageId;
+      this.lastStreamedContent = '';
+      this.emit('streamStart', messageId);
+    }
+
+    // Calculate delta (new content since last event)
+    // Gateway sends cumulative content, so we extract just the new part
+    if (fullContent.length > this.lastStreamedContent.length) {
+      const newChunk = fullContent.slice(this.lastStreamedContent.length);
+      if (newChunk && this.currentStreamingMessageId) {
+        this.emit('streamChunk', this.currentStreamingMessageId, newChunk);
+      }
+      this.lastStreamedContent = fullContent;
+    }
+
+    // Check if streaming is complete
+    if (chatPayload.state === 'final') {
+      // Emit full message
+      const message: Message = {
+        id: messageId,
+        role: 'assistant',
+        content: fullContent,
+        timestamp: chatPayload.message?.timestamp || Date.now(),
+      };
+      this.emit('message', message);
+      this.emit('streamEnd', messageId);
+
+      // Reset streaming state
+      this.currentStreamingMessageId = null;
+      this.lastStreamedContent = '';
     }
   }
 
