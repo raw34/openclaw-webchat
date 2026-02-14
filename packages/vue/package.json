@@ -17,7 +17,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsup",
+    "build": "tsup && cp src/index.d.ts dist/",
     "dev": "tsup --watch",
     "clean": "rm -rf dist"
   },
@@ -46,8 +46,11 @@
     "@openclaw/chat-core": "workspace:*"
   },
   "devDependencies": {
+    "esbuild-plugin-vue3": "^0.5.1",
     "tsup": "^8.3.0",
     "typescript": "^5.7.0",
-    "vue": "^3.5.0"
+    "unplugin-vue-components": "^31.0.0",
+    "vue": "^3.5.0",
+    "vue-tsc": "^3.2.4"
   }
 }
