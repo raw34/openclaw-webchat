@@ -29,13 +29,13 @@ importers:
 
   apps/demo:
     dependencies:
-      '@raw34/openclaw-webchat':
+      openclaw-webchat:
         specifier: workspace:*
         version: link:../../packages/core
-      '@raw34/openclaw-webchat-react':
+      openclaw-webchat-react:
         specifier: workspace:*
         version: link:../../packages/react
-      '@raw34/openclaw-webchat-vue':
+      openclaw-webchat-vue:
         specifier: workspace:*
         version: link:../../packages/vue
       react:
@@ -78,7 +78,7 @@ importers:
 
   packages/react:
     dependencies:
-      '@raw34/openclaw-webchat':
+      openclaw-webchat:
         specifier: workspace:*
         version: link:../core
     devDependencies:
@@ -103,7 +103,7 @@ importers:
 
   packages/vue:
     dependencies:
-      '@raw34/openclaw-webchat':
+      openclaw-webchat:
         specifier: workspace:*
         version: link:../core
     devDependencies:

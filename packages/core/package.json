@@ -1,5 +1,5 @@
 {
-  "name": "@raw34/openclaw-webchat",
+  "name": "openclaw-webchat",
   "version": "0.1.0",
   "description": "Core WebSocket client for OpenClaw Gateway",
   "type": "module",

@@ -32,9 +32,9 @@ cd apps/demo && pnpm dev  # Run demo with React/Vue examples
 
 ```
 packages/
-├── core/     # @raw34/openclaw-webchat - Framework-agnostic WebSocket client
-├── react/    # @raw34/openclaw-webchat-react - React hooks + ChatWidget
-└── vue/      # @raw34/openclaw-webchat-vue - Vue composables + ChatWidget
+├── core/     # openclaw-webchat - Framework-agnostic WebSocket client
+├── react/    # openclaw-webchat-react - React hooks + ChatWidget
+└── vue/      # openclaw-webchat-vue - Vue composables + ChatWidget
 apps/
 └── demo/     # Vite dev server with React/Vue demos
 ```
@@ -58,7 +58,7 @@ Key concepts:
 Both follow the same pattern:
 - Hook/composable wraps `OpenClawClient`, manages state (messages, connectionState, isLoading, streamingContent)
 - ChatWidget is a drop-in component with position modes: `inline`, `bottom-right`, `bottom-left`, `top-right`, `top-left`
-- Vue requires CSS import: `import '@raw34/openclaw-webchat-vue/style.css'`
+- Vue requires CSS import: `import 'openclaw-webchat-vue/style.css'`
 
 ### Protocol Types (`packages/core/src/types.ts`)
 

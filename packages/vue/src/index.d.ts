@@ -1,9 +1,9 @@
 import type { DefineComponent } from 'vue';
-import type { OpenClawClientOptions, Message, ConnectionState } from '@raw34/openclaw-webchat';
+import type { OpenClawClientOptions, Message, ConnectionState } from 'openclaw-webchat';
 import type { Ref, ComputedRef } from 'vue';
 
 // Re-export core types
-export type { OpenClawClientOptions, Message, ConnectionState } from '@raw34/openclaw-webchat';
+export type { OpenClawClientOptions, Message, ConnectionState } from 'openclaw-webchat';
 
 // Composable types
 export interface UseOpenClawChatOptions extends OpenClawClientOptions {
@@ -22,7 +22,7 @@ export interface UseOpenClawChatReturn {
   disconnect: () => void;
   clearMessages: () => void;
   loadHistory: (limit?: number) => Promise<void>;
-  client: Ref<import('@raw34/openclaw-webchat').OpenClawClient | null>;
+  client: Ref<import('openclaw-webchat').OpenClawClient | null>;
 }
 
 export declare function useOpenClawChat(options: UseOpenClawChatOptions): UseOpenClawChatReturn;
