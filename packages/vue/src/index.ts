@@ -10,4 +10,4 @@ export type {
   OpenClawClientOptions,
   Message,
   ConnectionState,
-} from '@raw34/chat-core';
+} from '@raw34/openclaw-webchat';

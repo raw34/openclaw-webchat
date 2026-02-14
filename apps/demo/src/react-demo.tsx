@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { ChatWidget } from '@raw34/chat-react';
+import { ChatWidget } from '@raw34/openclaw-webchat-react';
 
 const DEFAULT_GATEWAY = import.meta.env.VITE_GATEWAY_URL || 'ws://localhost:18789';
 const DEFAULT_TOKEN = import.meta.env.VITE_TOKEN || '';

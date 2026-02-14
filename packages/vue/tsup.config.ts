@@ -10,6 +10,6 @@ export default defineConfig({
   clean: true,
   treeshake: true,
   minify: false,
-  external: ['vue', '@raw34/chat-core'],
+  external: ['vue', '@raw34/openclaw-webchat'],
   esbuildPlugins: [vuePlugin()],
 });

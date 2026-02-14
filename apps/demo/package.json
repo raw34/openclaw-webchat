@@ -9,9 +9,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@raw34/chat-core": "workspace:*",
-    "@raw34/chat-react": "workspace:*",
-    "@raw34/chat-vue": "workspace:*",
+    "@raw34/openclaw-webchat": "workspace:*",
+    "@raw34/openclaw-webchat-react": "workspace:*",
+    "@raw34/openclaw-webchat-vue": "workspace:*",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
     "vue": "^3.5.0"

@@ -1,6 +1,6 @@
 import { createApp, ref, defineComponent, h } from 'vue';
-import { ChatWidget } from '@raw34/chat-vue';
-import '@raw34/chat-vue/dist/index.css';
+import { ChatWidget } from '@raw34/openclaw-webchat-vue';
+import '@raw34/openclaw-webchat-vue/dist/index.css';
 
 const DEFAULT_GATEWAY = import.meta.env.VITE_GATEWAY_URL || 'ws://localhost:18789';
 const DEFAULT_TOKEN = import.meta.env.VITE_TOKEN || '';
