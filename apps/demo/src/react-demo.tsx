@@ -60,7 +60,7 @@ function App() {
           <ChatWidget
             gateway={gateway}
             token={token || undefined}
-            position="inline"
+            position="bottom-right"
             theme="light"
             title="AI Assistant"
             debug

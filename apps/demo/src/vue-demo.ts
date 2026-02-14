@@ -61,7 +61,7 @@ const App = defineComponent({
               h(ChatWidget, {
                 gateway: gateway.value,
                 token: token.value || undefined,
-                position: 'inline',
+                position: 'bottom-right',
                 theme: 'light',
                 title: 'AI Assistant',
                 debug: true,
