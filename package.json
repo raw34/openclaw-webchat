@@ -1,0 +1,27 @@
+{
+  "name": "openclaw-webchat",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Embeddable WebChat SDK for OpenClaw Gateway",
+  "author": "Randy",
+  "license": "MIT",
+  "scripts": {
+    "build": "pnpm -r build",
+    "dev": "pnpm -r --parallel dev",
+    "lint": "eslint packages/*/src",
+    "test": "vitest",
+    "clean": "pnpm -r clean && rm -rf node_modules"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "eslint": "^9.0.0",
+    "prettier": "^3.4.0",
+    "tsup": "^8.3.0",
+    "typescript": "^5.7.0",
+    "vitest": "^2.1.0"
+  },
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}

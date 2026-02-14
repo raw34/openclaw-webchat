@@ -1,0 +1,188 @@
+/**
+ * OpenClaw Gateway WebSocket Protocol Types
+ * Based on: https://docs.openclaw.ai/gateway/protocol
+ */
+
+// ============ Frame Types ============
+
+export type FrameType = 'req' | 'res' | 'event';
+
+export interface RequestFrame<T = unknown> {
+  type: 'req';
+  id: string;
+  method: string;
+  params?: T;
+}
+
+export interface ResponseFrame<T = unknown> {
+  type: 'res';
+  id: string;
+  ok: boolean;
+  payload?: T;
+  error?: ErrorPayload;
+}
+
+export interface EventFrame<T = unknown> {
+  type: 'event';
+  event: string;
+  payload: T;
+  seq?: number;
+  stateVersion?: number;
+}
+
+export type Frame = RequestFrame | ResponseFrame | EventFrame;
+
+export interface ErrorPayload {
+  code: string;
+  message: string;
+  details?: unknown;
+}
+
+// ============ Connection ============
+
+export interface ConnectChallenge {
+  nonce: string;
+  timestamp: number;
+}
+
+export interface ConnectParams {
+  protocol: {
+    version: string;
+    minVersion?: string;
+  };
+  client: {
+    name: string;
+    version: string;
+    platform: string;
+  };
+  role: 'operator' | 'node';
+  scopes: string[];
+  device?: {
+    id: string;
+    name?: string;
+  };
+  auth?: {
+    token?: string;
+    password?: string;
+    deviceToken?: string;
+  };
+}
+
+export interface HelloOkPayload {
+  protocol: {
+    version: string;
+  };
+  gateway: {
+    version: string;
+    name?: string;
+  };
+  auth?: {
+    deviceToken?: string;
+  };
+}
+
+// ============ Chat ============
+
+export interface Message {
+  id: string;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  timestamp: number;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ChatSendParams {
+  content: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ChatHistoryParams {
+  limit?: number;
+  before?: string;
+}
+
+export interface ChatInjectParams {
+  content: string;
+  role?: 'assistant' | 'system';
+}
+
+// ============ Events ============
+
+export interface MessageEvent {
+  message: Message;
+  streaming?: boolean;
+  done?: boolean;
+}
+
+export interface StreamChunkEvent {
+  messageId: string;
+  chunk: string;
+  done: boolean;
+}
+
+// ============ Client Options ============
+
+export interface OpenClawClientOptions {
+  /** Gateway WebSocket URL, e.g. ws://localhost:18789 or wss://ai.example.com */
+  gateway: string;
+
+  /** Authentication token */
+  token?: string;
+
+  /** Authentication password (alternative to token) */
+  password?: string;
+
+  /** Device token for persistent sessions */
+  deviceToken?: string;
+
+  /** Client name for identification */
+  clientName?: string;
+
+  /** Client version */
+  clientVersion?: string;
+
+  /** Auto-reconnect on disconnect (default: true) */
+  reconnect?: boolean;
+
+  /** Reconnect interval in ms (default: 3000) */
+  reconnectInterval?: number;
+
+  /** Max reconnect attempts (default: 10, -1 for infinite) */
+  maxReconnectAttempts?: number;
+
+  /** Connection timeout in ms (default: 10000) */
+  connectionTimeout?: number;
+
+  /** Debug logging (default: false) */
+  debug?: boolean;
+}
+
+// ============ Client State ============
+
+export type ConnectionState =
+  | 'disconnected'
+  | 'connecting'
+  | 'authenticating'
+  | 'connected'
+  | 'reconnecting'
+  | 'error';
+
+export interface ClientState {
+  connectionState: ConnectionState;
+  error?: Error;
+  reconnectAttempts: number;
+}
+
+// ============ Event Handlers ============
+
+export interface OpenClawClientEvents {
+  connected: () => void;
+  disconnected: (reason?: string) => void;
+  reconnecting: (attempt: number) => void;
+  error: (error: Error) => void;
+  message: (message: Message) => void;
+  streamStart: (messageId: string) => void;
+  streamChunk: (messageId: string, chunk: string) => void;
+  streamEnd: (messageId: string) => void;
+  stateChange: (state: ClientState) => void;
+}
