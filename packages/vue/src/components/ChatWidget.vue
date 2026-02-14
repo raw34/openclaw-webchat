@@ -356,6 +356,7 @@ function handleKeyDown(e: KeyboardEvent) {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
 .openclaw-header {
