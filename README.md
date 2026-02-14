@@ -1,14 +1,32 @@
 # OpenClaw WebChat SDK
 
+[![npm version](https://img.shields.io/npm/v/@raw34/openclaw-webchat.svg)](https://www.npmjs.com/package/@raw34/openclaw-webchat)
+[![npm downloads](https://img.shields.io/npm/dm/@raw34/openclaw-webchat.svg)](https://www.npmjs.com/package/@raw34/openclaw-webchat)
+[![license](https://img.shields.io/npm/l/@raw34/openclaw-webchat.svg)](https://github.com/raw34/openclaw-webchat/blob/main/LICENSE)
+[![CI](https://github.com/raw34/openclaw-webchat/actions/workflows/ci.yml/badge.svg)](https://github.com/raw34/openclaw-webchat/actions/workflows/ci.yml)
+
+[中文文档](./README.zh-CN.md)
+
 Embeddable WebChat SDK for [OpenClaw](https://openclaw.ai) Gateway. Build custom AI chat interfaces for your applications.
+
+## Features
+
+- **Ready-to-use Components** - Drop-in ChatWidget for React and Vue
+- **Streaming Support** - Real-time AI response streaming
+- **Customizable** - Hooks/Composables for building custom UI
+- **Theming** - Light, dark, and auto theme modes
+- **Flexible Positioning** - Floating or inline widget placement
+- **Auto Reconnect** - Automatic reconnection on connection loss
+- **TypeScript** - Full TypeScript support with type definitions
+- **Lightweight** - Minimal dependencies, tree-shakeable
 
 ## Packages
 
-| Package | Description |
-|---------|-------------|
-| [`@raw34/openclaw-webchat`](./packages/core) | Core WebSocket client (framework-agnostic) |
-| [`@raw34/openclaw-webchat-react`](./packages/react) | React hooks and components |
-| [`@raw34/openclaw-webchat-vue`](./packages/vue) | Vue composables and components |
+| Package | Version | Description |
+|---------|---------|-------------|
+| [`@raw34/openclaw-webchat`](./packages/core) | [![npm](https://img.shields.io/npm/v/@raw34/openclaw-webchat.svg)](https://www.npmjs.com/package/@raw34/openclaw-webchat) | Core WebSocket client (framework-agnostic) |
+| [`@raw34/openclaw-webchat-react`](./packages/react) | [![npm](https://img.shields.io/npm/v/@raw34/openclaw-webchat-react.svg)](https://www.npmjs.com/package/@raw34/openclaw-webchat-react) | React hooks and components |
+| [`@raw34/openclaw-webchat-vue`](./packages/vue) | [![npm](https://img.shields.io/npm/v/@raw34/openclaw-webchat-vue.svg)](https://www.npmjs.com/package/@raw34/openclaw-webchat-vue) | Vue composables and components |
 
 ## Quick Start
 
@@ -205,6 +223,10 @@ pnpm dev
 pnpm test
 ```
 
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
 ## License
 
-MIT
+[MIT](./LICENSE)
