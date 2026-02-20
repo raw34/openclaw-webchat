@@ -212,7 +212,7 @@ async function run() {
               id: clientId,
               version: "diagnose-1.0.0",
               platform: "browser",
-              mode: "node",
+              mode: "operator",
             },
             scopes,
             auth: {

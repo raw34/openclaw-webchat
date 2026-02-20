@@ -480,7 +480,7 @@ export class OpenClawClient {
         id: this.options.clientName,
         version: this.options.clientVersion,
         platform: isBrowser ? 'browser' : 'node',
-        mode: 'node',
+        mode: 'operator',
       },
       scopes: ['operator.read', 'operator.write'],
       auth: {},
