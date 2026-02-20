@@ -10,9 +10,8 @@ function createMockDeviceProof(challenge: ConnectChallenge): DeviceProof {
   return {
     id: 'device-1',
     nonce: challenge.nonce,
-    timestamp: challenge.timestamp,
-    algorithm: 'ECDSA_P256_SHA256',
-    publicKey: { kty: 'EC', crv: 'P-256', x: 'x', y: 'y' },
+    signedAt: challenge.timestamp,
+    publicKey: 'pubkey-1',
     signature: 'sig-1',
   };
 }
@@ -22,8 +21,7 @@ function createMockProvider(overrides: Partial<DeviceAuthProvider> = {}): Device
     isSupported: () => true,
     getOrCreateIdentity: async () => ({
       id: 'device-1',
-      publicKey: { kty: 'EC', crv: 'P-256', x: 'x', y: 'y' },
-      algorithm: 'ECDSA_P256_SHA256',
+      publicKey: 'pubkey-1',
     }),
     signChallenge: async (challenge: ConnectChallenge) => createMockDeviceProof(challenge),
     getDeviceToken: async () => undefined,
@@ -191,16 +189,22 @@ describe('OpenClawClient', () => {
       const connectReq = ws.getLastSentMessage() as {
         id: string;
         method: string;
-        params: { device: DeviceProof; auth: { deviceToken: string; token?: string } };
+        params: { device: DeviceProof; auth: { token: string } };
       };
       expect(connectReq.method).toBe('connect');
       expect(connectReq.params.device).toMatchObject({
         id: 'device-1',
         nonce: challenge.nonce,
       });
-      expect(connectReq.params.auth.deviceToken).toBe('stored-device-token');
-      expect(connectReq.params.auth.token).toBeUndefined();
-      expect(signChallenge).toHaveBeenCalledWith(challenge);
+      expect(connectReq.params.auth.token).toBe('stored-device-token');
+      expect(signChallenge).toHaveBeenCalledWith(
+        challenge,
+        expect.objectContaining({
+          clientId: 'openclaw-webchat',
+          clientMode: 'node',
+          role: 'operator',
+        })
+      );
 
       ws.simulateMessage({
         type: 'res',
@@ -287,9 +291,9 @@ describe('OpenClawClient', () => {
       const firstConnectReq = ws.getLastSentMessage() as {
         id: string;
         method: string;
-        params: { auth: { deviceToken?: string; token?: string } };
+        params: { auth: { token?: string } };
       };
-      expect(firstConnectReq.params.auth.deviceToken).toBe('bad-device-token');
+      expect(firstConnectReq.params.auth.token).toBe('bad-device-token');
 
       ws.simulateMessage({
         type: 'res',
@@ -304,10 +308,9 @@ describe('OpenClawClient', () => {
       const secondConnectReq = ws.getLastSentMessage() as {
         id: string;
         method: string;
-        params: { auth: { deviceToken?: string; token?: string } };
+        params: { auth: { token?: string } };
       };
       expect(secondConnectReq.method).toBe('connect');
-      expect(secondConnectReq.params.auth.deviceToken).toBeUndefined();
       expect(secondConnectReq.params.auth.token).toBe('fallback-token');
       expect(clearDeviceToken).toHaveBeenCalledOnce();
 

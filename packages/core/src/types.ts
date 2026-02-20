@@ -55,10 +55,10 @@ export interface ConnectParams {
     mode: 'operator' | 'node';
   };
   scopes: string[];
+  role?: 'operator' | 'node';
   auth?: {
     token?: string;
     password?: string;
-    deviceToken?: string;
   };
   device?: DeviceProof;
 }
@@ -174,23 +174,29 @@ export interface OpenClawClientOptions {
 
 export interface DeviceIdentity {
   id: string;
-  publicKey: JsonWebKey;
-  algorithm: string;
+  publicKey: string;
 }
 
 export interface DeviceProof {
   id: string;
-  nonce: string;
-  timestamp: number;
-  algorithm: string;
-  publicKey: JsonWebKey;
+  publicKey: string;
   signature: string;
+  signedAt: number;
+  nonce?: string;
+}
+
+export interface DeviceSignContext {
+  clientId: string;
+  clientMode: 'node' | 'operator';
+  role: 'operator' | 'node';
+  scopes: string[];
+  token?: string | null;
 }
 
 export interface DeviceAuthProvider {
   isSupported(): boolean;
   getOrCreateIdentity(): Promise<DeviceIdentity>;
-  signChallenge(challenge: ConnectChallenge): Promise<DeviceProof>;
+  signChallenge(challenge: ConnectChallenge, context: DeviceSignContext): Promise<DeviceProof>;
   getDeviceToken(): Promise<string | undefined>;
   setDeviceToken(token: string): Promise<void>;
   clearDeviceToken(): Promise<void>;

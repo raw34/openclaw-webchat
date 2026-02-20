@@ -21,6 +21,7 @@ export type {
   HelloOkPayload,
   DeviceIdentity,
   DeviceProof,
+  DeviceSignContext,
   DeviceAuthProvider,
   OpenClawErrorCode,
 

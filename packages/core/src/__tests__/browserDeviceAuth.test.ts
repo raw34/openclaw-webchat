@@ -40,19 +40,27 @@ describe('createBrowserDeviceAuthProvider', () => {
 
     expect(identityB.id).toBe(identityA.id);
     expect(identityB.publicKey).toEqual(identityA.publicKey);
-    expect(identityB.algorithm).toBe('ECDSA_P256_SHA256');
+    expect(identityB.publicKey.length).toBeGreaterThan(12);
   });
 
   it('signs challenge and returns proof fields', async () => {
     const provider = createBrowserDeviceAuthProvider('wss://gateway.example/ws');
-    const proof = await provider.signChallenge({ nonce: 'abc', timestamp: 1700000000000 });
+    const proof = await provider.signChallenge(
+      { nonce: 'abc', timestamp: 1700000000000 },
+      {
+        clientId: 'webchat',
+        clientMode: 'node',
+        role: 'operator',
+        scopes: ['operator.read', 'operator.write'],
+        token: 'token-1',
+      }
+    );
 
     expect(proof).toMatchObject({
       id: expect.any(String),
+      publicKey: expect.any(String),
+      signedAt: expect.any(Number),
       nonce: 'abc',
-      timestamp: 1700000000000,
-      algorithm: 'ECDSA_P256_SHA256',
-      publicKey: expect.objectContaining({ kty: 'EC' }),
       signature: expect.any(String),
     });
     expect(proof.signature.length).toBeGreaterThan(12);

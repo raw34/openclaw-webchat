@@ -482,24 +482,31 @@ export class OpenClawClient {
         platform: isBrowser ? 'browser' : 'node',
         mode: 'node',
       },
+      role: 'operator',
       scopes: ['operator.read', 'operator.write'],
-      auth: {},
     };
-
-    if (challenge && provider?.isSupported()) {
-      params.device = await provider.signChallenge(challenge);
-    }
 
     if (!this.forceSharedAuthOnce && provider?.isSupported() && !this.deviceToken) {
       this.deviceToken = await provider.getDeviceToken();
     }
 
-    if (this.deviceToken && !this.forceSharedAuthOnce) {
-      params.auth!.deviceToken = this.deviceToken;
-    } else if (this.options.token) {
-      params.auth!.token = this.options.token;
+    const authToken =
+      this.deviceToken && !this.forceSharedAuthOnce ? this.deviceToken : this.options.token;
+
+    if (authToken) {
+      params.auth = { token: authToken };
     } else if (this.options.password) {
-      params.auth!.password = this.options.password;
+      params.auth = { password: this.options.password };
+    }
+
+    if (challenge && provider?.isSupported()) {
+      params.device = await provider.signChallenge(challenge, {
+        clientId: this.options.clientName,
+        clientMode: 'node',
+        role: 'operator',
+        scopes: params.scopes,
+        token: authToken ?? null,
+      });
     }
 
     this.forceSharedAuthOnce = false;
