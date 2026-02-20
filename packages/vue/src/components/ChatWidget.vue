@@ -2,6 +2,16 @@
 import { ref, computed, watch, nextTick } from 'vue';
 import type { OpenClawClientOptions, Message } from 'openclaw-webchat';
 import { useOpenClawChat } from '../composables/useOpenClawChat';
+import { getOrCreateStableSessionKey } from './sessionKey';
+
+export interface ChatWidgetAuthTexts {
+  pairingRequiredTitle?: string;
+  pairingRequiredBody?: string;
+  scopeMissingWriteTitle?: string;
+  scopeMissingWriteBody?: string;
+  retryConnectionButton?: string;
+  retryingConnectionButton?: string;
+}
 
 export interface ChatWidgetProps {
   // OpenClawClientOptions - explicitly defined for Vue props
@@ -24,6 +34,7 @@ export interface ChatWidgetProps {
   placeholder?: string;
   defaultOpen?: boolean;
   autoConnect?: boolean;
+  authTexts?: ChatWidgetAuthTexts;
 }
 
 const props = withDefaults(defineProps<ChatWidgetProps>(), {
@@ -48,6 +59,7 @@ defineSlots<{
 const isOpen = ref(props.defaultOpen);
 const input = ref('');
 const messagesEndRef = ref<HTMLDivElement | null>(null);
+const resolvedSessionKey = props.sessionKey || getOrCreateStableSessionKey();
 
 // Explicitly construct client options from props, filtering out undefined values
 const clientOptions: OpenClawClientOptions & { autoConnect?: boolean } = Object.fromEntries(
@@ -63,7 +75,7 @@ const clientOptions: OpenClawClientOptions & { autoConnect?: boolean } = Object.
     maxReconnectAttempts: props.maxReconnectAttempts,
     connectionTimeout: props.connectionTimeout,
     debug: props.debug,
-    sessionKey: props.sessionKey,
+    sessionKey: resolvedSessionKey,
     autoConnect: props.autoConnect,
   }).filter(([_, v]) => v !== undefined)
 ) as OpenClawClientOptions & { autoConnect?: boolean };
@@ -74,8 +86,31 @@ const {
   isLoading,
   streamingContent,
   error,
+  connect,
   send: clientSend,
 } = useOpenClawChat(clientOptions);
+const isRetryingConnect = ref(false);
+const authIssue = computed(() => {
+  const code = (error.value as { code?: string } | null)?.code;
+  if (code === 'PAIRING_REQUIRED') {
+    return 'pairing_required';
+  }
+  if (code === 'SCOPE_MISSING_WRITE') {
+    return 'scope_missing_write';
+  }
+  return 'none';
+});
+const resolvedAuthTexts = computed<Required<ChatWidgetAuthTexts>>(() => ({
+  pairingRequiredTitle: props.authTexts?.pairingRequiredTitle ?? 'Pairing Required',
+  pairingRequiredBody:
+    props.authTexts?.pairingRequiredBody ?? 'Approve this device on gateway host, then retry connection.',
+  scopeMissingWriteTitle: props.authTexts?.scopeMissingWriteTitle ?? 'Permission Required',
+  scopeMissingWriteBody:
+    props.authTexts?.scopeMissingWriteBody ??
+    'This device is missing operator.write. Ask an administrator to grant write scope, then retry connection.',
+  retryConnectionButton: props.authTexts?.retryConnectionButton ?? 'Retry Connection',
+  retryingConnectionButton: props.authTexts?.retryingConnectionButton ?? 'Retrying...',
+}));
 
 const themes = {
   light: {
@@ -168,6 +203,16 @@ function handleKeyDown(e: KeyboardEvent) {
     handleSend();
   }
 }
+
+async function handleRetryConnection() {
+  if (isRetryingConnect.value) return;
+  isRetryingConnect.value = true;
+  try {
+    await connect();
+  } finally {
+    isRetryingConnect.value = false;
+  }
+}
 </script>
 
 <template>
@@ -207,6 +252,25 @@ function handleKeyDown(e: KeyboardEvent) {
           </div>
         </slot>
       </template>
+      <div v-if="authIssue !== 'none'" class="openclaw-pairing">
+        <div class="openclaw-pairing-title">
+          {{ authIssue === 'pairing_required' ? resolvedAuthTexts.pairingRequiredTitle : resolvedAuthTexts.scopeMissingWriteTitle }}
+        </div>
+        <div class="openclaw-pairing-text">
+          {{ authIssue === 'pairing_required' ? resolvedAuthTexts.pairingRequiredBody : resolvedAuthTexts.scopeMissingWriteBody }}
+        </div>
+        <button
+          @click="handleRetryConnection"
+          :disabled="isRetryingConnect"
+          :style="{
+            backgroundColor: colors.buttonBg,
+            color: colors.buttonColor,
+            opacity: isRetryingConnect ? 0.6 : 1,
+          }"
+        >
+          {{ isRetryingConnect ? resolvedAuthTexts.retryingConnectionButton : resolvedAuthTexts.retryConnectionButton }}
+        </button>
+      </div>
       <div v-if="error" class="openclaw-error">
         Error: {{ error.message }}
       </div>
@@ -296,6 +360,25 @@ function handleKeyDown(e: KeyboardEvent) {
             </div>
           </slot>
         </template>
+        <div v-if="authIssue !== 'none'" class="openclaw-pairing">
+          <div class="openclaw-pairing-title">
+            {{ authIssue === 'pairing_required' ? resolvedAuthTexts.pairingRequiredTitle : resolvedAuthTexts.scopeMissingWriteTitle }}
+          </div>
+          <div class="openclaw-pairing-text">
+            {{ authIssue === 'pairing_required' ? resolvedAuthTexts.pairingRequiredBody : resolvedAuthTexts.scopeMissingWriteBody }}
+          </div>
+          <button
+            @click="handleRetryConnection"
+            :disabled="isRetryingConnect"
+            :style="{
+              backgroundColor: colors.buttonBg,
+              color: colors.buttonColor,
+              opacity: isRetryingConnect ? 0.6 : 1,
+            }"
+          >
+            {{ isRetryingConnect ? resolvedAuthTexts.retryingConnectionButton : resolvedAuthTexts.retryConnectionButton }}
+          </button>
+        </div>
         <div v-if="error" class="openclaw-error">
           Error: {{ error.message }}
         </div>
@@ -394,6 +477,36 @@ function handleKeyDown(e: KeyboardEvent) {
   color: #dc3545;
   padding: 8px 12px;
   font-size: 14px;
+}
+
+.openclaw-pairing {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #f0c2c2;
+  background: #fff7f7;
+}
+
+.openclaw-pairing-title {
+  color: #9f2f2f;
+  font-weight: 600;
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+
+.openclaw-pairing-text {
+  color: #5f3b3b;
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+
+.openclaw-pairing button {
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
 }
 
 .openclaw-input {

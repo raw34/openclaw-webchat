@@ -179,6 +179,7 @@ interface OpenClawClientOptions {
   token?: string;               // 认证令牌
   password?: string;            // 认证密码（可选方式）
   deviceToken?: string;         // 设备令牌（用于持久会话）
+  deviceAuthProvider?: DeviceAuthProvider; // 可选：自定义浏览器设备认证实现
   reconnect?: boolean;          // 自动重连（默认: true）
   reconnectInterval?: number;   // 重连间隔，单位毫秒（默认: 3000）
   maxReconnectAttempts?: number; // 最大重连次数（默认: 10，-1 为无限）
@@ -193,6 +194,7 @@ interface OpenClawClientOptions {
 // 连接管理
 await client.connect();       // 连接到网关
 client.disconnect();          // 断开连接
+await client.resetDeviceIdentity(); // 清理当前网关下本地设备身份与设备令牌
 client.isConnected;           // boolean - 是否已连接
 client.connectionState;       // 'disconnected' | 'connecting' | 'connected' | ...
 
@@ -210,6 +212,25 @@ client.on('streamChunk', (messageId, chunk) => {});  // 收到流式片段
 client.on('streamEnd', (messageId) => {});           // 流式响应结束
 client.on('error', (error) => {});                   // 发生错误
 ```
+
+## 排查指南
+
+建议先用脚本诊断网关握手：
+
+```bash
+GATEWAY_AUTH_TOKEN=*** node scripts/diagnose-openclaw-ws.mjs --url wss://your-gateway/ws
+```
+
+- 网关地址请使用 `/ws` 路径（例如 `wss://gateway.example/ws`）。
+- 失败结果会输出标准化 `category` 和 `code`（如 `PAIRING_REQUIRED`、`SCOPE_MISSING_WRITE`）。
+- 浏览器模式下，OpenClaw 设备认证依赖 IndexedDB 与 WebCrypto。
+- 若设备身份缓存异常，可调用 `client.resetDeviceIdentity()` 后重连。
+
+首次配对流程（WebChat/demo）：
+1. 在 demo 发起连接（或运行默认 `device-auth=true` 的诊断脚本）。
+2. 若返回 `PAIRING_REQUIRED`，在网关机器上批准 pending 设备。
+3. 回到 demo 点击 `Retry Connection`（按设计为手动重试）。
+4. 如有需要，先点击 `Reset Device Identity`，再重试连接。
 
 ## 本地开发
 

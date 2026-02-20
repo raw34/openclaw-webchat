@@ -1,6 +1,16 @@
 import React, { useState, useRef, useEffect } from 'react';
 import type { OpenClawClientOptions, Message } from 'openclaw-webchat';
 import { useOpenClawChat } from '../hooks/useOpenClawChat';
+import { getOrCreateStableSessionKey } from './sessionKey';
+
+export interface ChatWidgetAuthTexts {
+  pairingRequiredTitle?: string;
+  pairingRequiredBody?: string;
+  scopeMissingWriteTitle?: string;
+  scopeMissingWriteBody?: string;
+  retryConnectionButton?: string;
+  retryingConnectionButton?: string;
+}
 
 export interface ChatWidgetProps extends OpenClawClientOptions {
   /** Widget position */
@@ -32,6 +42,9 @@ export interface ChatWidgetProps extends OpenClawClientOptions {
 
   /** On message received callback */
   onMessage?: (message: Message) => void;
+
+  /** Override auth issue copy in widget UI */
+  authTexts?: ChatWidgetAuthTexts;
 }
 
 const defaultStyles = {
@@ -164,11 +177,17 @@ export function ChatWidget({
   renderLoading,
   onSend,
   onMessage,
+  authTexts,
   ...clientOptions
 }: ChatWidgetProps) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const resolvedSessionKey = clientOptions.sessionKey ?? getOrCreateStableSessionKey();
+  const resolvedClientOptions = {
+    ...clientOptions,
+    sessionKey: resolvedSessionKey,
+  };
 
   const {
     messages,
@@ -177,7 +196,20 @@ export function ChatWidget({
     streamingContent,
     error,
     send,
-  } = useOpenClawChat(clientOptions);
+    connect,
+  } = useOpenClawChat(resolvedClientOptions);
+  const [isRetryingConnect, setIsRetryingConnect] = useState(false);
+  const resolvedAuthTexts: Required<ChatWidgetAuthTexts> = {
+    pairingRequiredTitle: authTexts?.pairingRequiredTitle ?? 'Pairing Required',
+    pairingRequiredBody:
+      authTexts?.pairingRequiredBody ?? 'Approve this device on gateway host, then retry connection.',
+    scopeMissingWriteTitle: authTexts?.scopeMissingWriteTitle ?? 'Permission Required',
+    scopeMissingWriteBody:
+      authTexts?.scopeMissingWriteBody ??
+      'This device is missing operator.write. Ask an administrator to grant write scope, then retry connection.',
+    retryConnectionButton: authTexts?.retryConnectionButton ?? 'Retry Connection',
+    retryingConnectionButton: authTexts?.retryingConnectionButton ?? 'Retrying...',
+  };
 
   // Get current theme colors
   const resolvedTheme = theme === 'auto'
@@ -245,6 +277,23 @@ export function ChatWidget({
       {content || '...'}
     </div>
   );
+
+  const errorCode = (error as { code?: string } | null)?.code;
+  const authIssue = errorCode === 'PAIRING_REQUIRED'
+    ? 'pairing_required'
+    : errorCode === 'SCOPE_MISSING_WRITE'
+      ? 'scope_missing_write'
+      : 'none';
+
+  const handleRetryConnection = async () => {
+    if (isRetryingConnect) return;
+    setIsRetryingConnect(true);
+    try {
+      await connect();
+    } finally {
+      setIsRetryingConnect(false);
+    }
+  };
 
   // Inline mode - render directly
   if (position === 'inline') {
@@ -332,6 +381,42 @@ export function ChatWidget({
             renderLoading
               ? renderLoading(streamingContent)
               : renderDefaultLoading(streamingContent)
+          )}
+          {authIssue !== 'none' && (
+            <div
+              style={{
+                marginBottom: 12,
+                padding: '10px 12px',
+                borderRadius: 8,
+                border: '1px solid #f0c2c2',
+                background: '#fff7f7',
+              }}
+            >
+              <div style={{ color: '#9f2f2f', fontWeight: 600, fontSize: 13, marginBottom: 6 }}>
+                {authIssue === 'pairing_required'
+                  ? resolvedAuthTexts.pairingRequiredTitle
+                  : resolvedAuthTexts.scopeMissingWriteTitle}
+              </div>
+              <div style={{ color: '#5f3b3b', fontSize: 13, marginBottom: 8 }}>
+                {authIssue === 'pairing_required'
+                  ? resolvedAuthTexts.pairingRequiredBody
+                  : resolvedAuthTexts.scopeMissingWriteBody}
+              </div>
+              <button
+                onClick={() => void handleRetryConnection()}
+                disabled={isRetryingConnect}
+                style={{
+                  ...defaultStyles.sendButton,
+                  backgroundColor: colors.buttonBg,
+                  color: colors.buttonColor,
+                  opacity: isRetryingConnect ? 0.6 : 1,
+                }}
+              >
+                {isRetryingConnect
+                  ? resolvedAuthTexts.retryingConnectionButton
+                  : resolvedAuthTexts.retryConnectionButton}
+              </button>
+            </div>
           )}
           {error && (
             <div style={{ color: '#dc3545', padding: '8px 12px', fontSize: 14 }}>

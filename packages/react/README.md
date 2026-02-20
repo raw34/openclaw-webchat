@@ -126,12 +126,34 @@ interface ChatWidgetProps {
   /** Custom CSS class */
   className?: string;
 
+  /** Override auth issue copy shown in widget */
+  authTexts?: {
+    pairingRequiredTitle?: string;
+    pairingRequiredBody?: string;
+    scopeMissingWriteTitle?: string;
+    scopeMissingWriteBody?: string;
+    retryConnectionButton?: string;
+    retryingConnectionButton?: string;
+  };
+
   /** Enable debug logging */
   debug?: boolean;
 
   // ... all OpenClawClientOptions are also supported
 }
 ```
+
+Session behavior:
+- By default, `ChatWidget` uses an isolated browser-local session key (`webchat:<stable-id>`), so conversations do not mix with other channels by accident.
+- Pass `sessionKey` explicitly if you want to override/share a specific session.
+
+`authTexts` defaults:
+- `pairingRequiredTitle`: `Pairing Required`
+- `pairingRequiredBody`: `Approve this device on gateway host, then retry connection.`
+- `scopeMissingWriteTitle`: `Permission Required`
+- `scopeMissingWriteBody`: `This device is missing operator.write. Ask an administrator to grant write scope, then retry connection.`
+- `retryConnectionButton`: `Retry Connection`
+- `retryingConnectionButton`: `Retrying...`
 
 ### ChatWidget Render Props
 

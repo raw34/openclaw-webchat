@@ -7,17 +7,19 @@ const DEFAULT_TOKEN = import.meta.env.VITE_TOKEN || '';
 
 const App = defineComponent({
   setup() {
-    const gateway = ref(
-      localStorage.getItem('openclaw-gateway') || DEFAULT_GATEWAY
-    );
+    const gateway = ref(localStorage.getItem('openclaw-gateway') || DEFAULT_GATEWAY);
     const token = ref(localStorage.getItem('openclaw-token') || DEFAULT_TOKEN);
     const isConfigured = ref(false);
 
-    function handleSubmit(e: Event) {
-      e.preventDefault();
+    async function handleConnect() {
       localStorage.setItem('openclaw-gateway', gateway.value);
       localStorage.setItem('openclaw-token', token.value);
       isConfigured.value = true;
+    }
+
+    function handleSubmit(e: Event) {
+      e.preventDefault();
+      void handleConnect();
     }
 
     return () =>
@@ -33,7 +35,7 @@ const App = defineComponent({
                   value: gateway.value,
                   onInput: (e: Event) =>
                     (gateway.value = (e.target as HTMLInputElement).value),
-                  placeholder: 'ws://localhost:18789',
+                  placeholder: 'wss://example.com/ws',
                 }),
               ]),
               h('label', [
@@ -43,21 +45,28 @@ const App = defineComponent({
                   value: token.value,
                   onInput: (e: Event) =>
                     (token.value = (e.target as HTMLInputElement).value),
-                  placeholder: 'your-auth-token',
+                  placeholder: 'gateway auth token',
                 }),
               ]),
-              h('button', { type: 'submit' }, 'Connect'),
+              h(
+                'button',
+                { type: 'submit' },
+                'Connect'
+              ),
             ])
           : h('div', [
               h('p', `Connected to: ${gateway.value}`),
-              h(
-                'button',
-                {
-                  onClick: () => (isConfigured.value = false),
-                  style: { marginBottom: '20px' },
-                },
-                'Change Config'
-              ),
+              h('div', { class: 'action-row', style: { marginBottom: '20px' } }, [
+                h(
+                  'button',
+                  {
+                    onClick: () => {
+                      isConfigured.value = false;
+                    },
+                  },
+                  'Change Config'
+                ),
+              ]),
               h(ChatWidget, {
                 gateway: gateway.value,
                 token: token.value || undefined,

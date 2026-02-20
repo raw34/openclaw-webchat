@@ -9,21 +9,25 @@ function App() {
   const [gateway, setGateway] = useState(
     localStorage.getItem('openclaw-gateway') || DEFAULT_GATEWAY
   );
-  const [token, setToken] = useState(
-    localStorage.getItem('openclaw-token') || DEFAULT_TOKEN
-  );
+  const [token, setToken] = useState(localStorage.getItem('openclaw-token') || DEFAULT_TOKEN);
   const [isConfigured, setIsConfigured] = useState(false);
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleConnect() {
     localStorage.setItem('openclaw-gateway', gateway);
     localStorage.setItem('openclaw-token', token);
     setIsConfigured(true);
   }
 
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    void handleConnect();
+  }
+
   return (
     <div className="demo-page">
-      <a href="/" className="back-link">← Back to Home</a>
+      <a href="/" className="back-link">
+        ← Back to Home
+      </a>
       <h1>React ChatWidget Demo</h1>
 
       {!isConfigured ? (
@@ -34,7 +38,7 @@ function App() {
               type="text"
               value={gateway}
               onChange={(e) => setGateway(e.target.value)}
-              placeholder="ws://localhost:18789"
+              placeholder="wss://example.com/ws"
             />
           </label>
           <label>
@@ -43,20 +47,18 @@ function App() {
               type="text"
               value={token}
               onChange={(e) => setToken(e.target.value)}
-              placeholder="your-auth-token"
+              placeholder="gateway auth token"
             />
           </label>
           <button type="submit">Connect</button>
+
         </form>
       ) : (
         <>
           <p>Connected to: {gateway}</p>
-          <button
-            onClick={() => setIsConfigured(false)}
-            style={{ marginBottom: 20 }}
-          >
-            Change Config
-          </button>
+          <div className="action-row" style={{ marginBottom: 20 }}>
+            <button onClick={() => setIsConfigured(false)}>Change Config</button>
+          </div>
           <ChatWidget
             gateway={gateway}
             token={token || undefined}

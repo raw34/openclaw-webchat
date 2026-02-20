@@ -1,4 +1,5 @@
 export { OpenClawClient } from './client';
+export { createBrowserDeviceAuthProvider } from './deviceAuth';
 export type {
   // Client Options
   OpenClawClientOptions,
@@ -18,6 +19,11 @@ export type {
   ConnectChallenge,
   ConnectParams,
   HelloOkPayload,
+  DeviceIdentity,
+  DeviceProof,
+  DeviceSignContext,
+  DeviceAuthProvider,
+  OpenClawErrorCode,
 
   // Chat
   Message,

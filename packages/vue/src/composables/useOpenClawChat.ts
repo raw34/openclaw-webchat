@@ -1,4 +1,4 @@
-import { ref, shallowRef, onMounted, onUnmounted, computed, watch, toRefs } from 'vue';
+import { ref, shallowRef, onMounted, onUnmounted, computed } from 'vue';
 import type { Ref, ComputedRef } from 'vue';
 import {
   OpenClawClient,

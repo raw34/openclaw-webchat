@@ -1,9 +1,35 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { OpenClawClient } from '../client';
 import { MockWebSocket } from './MockWebSocket';
+import type { ConnectChallenge, DeviceAuthProvider, DeviceProof } from '../types';
 
 // Mock WebSocket globally
 vi.stubGlobal('WebSocket', MockWebSocket);
+
+function createMockDeviceProof(challenge: ConnectChallenge): DeviceProof {
+  return {
+    id: 'device-1',
+    nonce: challenge.nonce,
+    signedAt: challenge.timestamp,
+    publicKey: 'pubkey-1',
+    signature: 'sig-1',
+  };
+}
+
+function createMockProvider(overrides: Partial<DeviceAuthProvider> = {}): DeviceAuthProvider {
+  return {
+    isSupported: () => true,
+    getOrCreateIdentity: async () => ({
+      id: 'device-1',
+      publicKey: 'pubkey-1',
+    }),
+    signChallenge: async (challenge: ConnectChallenge) => createMockDeviceProof(challenge),
+    getDeviceToken: async () => undefined,
+    setDeviceToken: async () => {},
+    clearDeviceToken: async () => {},
+    ...overrides,
+  };
+}
 
 describe('OpenClawClient', () => {
   beforeEach(() => {
@@ -12,6 +38,14 @@ describe('OpenClawClient', () => {
 
   afterEach(() => {
     vi.clearAllTimers();
+  });
+
+  it('accepts optional deviceAuthProvider option', () => {
+    const client = new OpenClawClient({
+      gateway: 'ws://localhost:18789',
+      deviceAuthProvider: undefined,
+    });
+    expect(client).toBeDefined();
   });
 
   describe('connection', () => {
@@ -110,7 +144,9 @@ describe('OpenClawClient', () => {
         payload: { nonce: 'abc123', timestamp: Date.now() },
       });
 
-      await vi.waitFor(() => ws.getSentMessages().length > 0);
+      await vi.waitFor(() => {
+        expect(ws.getSentMessages().length).toBeGreaterThan(0);
+      });
 
       // Server rejects connection
       ws.simulateMessage({
@@ -121,6 +157,203 @@ describe('OpenClawClient', () => {
       });
 
       await expect(connectPromise).rejects.toThrow('Invalid token');
+    });
+
+    it('sends device proof and prefers provider device token when available', async () => {
+      const provider = createMockProvider({
+        getDeviceToken: async () => 'stored-device-token',
+      });
+      const signChallenge = vi.spyOn(provider, 'signChallenge');
+
+      const client = new OpenClawClient({
+        gateway: 'ws://localhost:18789',
+        token: 'fallback-token',
+        deviceAuthProvider: provider,
+      });
+
+      const connectPromise = client.connect();
+      const ws = MockWebSocket.getLastInstance()!;
+      ws.simulateOpen();
+
+      const challenge: ConnectChallenge = { nonce: 'abc123', timestamp: Date.now() };
+      ws.simulateMessage({
+        type: 'event',
+        event: 'connect.challenge',
+        payload: challenge,
+      });
+
+      await vi.waitFor(() => {
+        expect(ws.getSentMessages().length).toBeGreaterThan(0);
+      });
+
+      const connectReq = ws.getLastSentMessage() as {
+        id: string;
+        method: string;
+        params: { device: DeviceProof; auth: { token: string } };
+      };
+      expect(connectReq.method).toBe('connect');
+      expect(connectReq.params.device).toMatchObject({
+        id: 'device-1',
+        nonce: challenge.nonce,
+      });
+      expect(connectReq.params.auth.token).toBe('stored-device-token');
+      expect(signChallenge).toHaveBeenCalledWith(
+        challenge,
+        expect.objectContaining({
+          clientId: 'webchat',
+          clientMode: 'node',
+          role: 'operator',
+        })
+      );
+
+      ws.simulateMessage({
+        type: 'res',
+        id: connectReq.id,
+        ok: true,
+        payload: {
+          type: 'hello-ok',
+          protocol: 3,
+          server: { version: '1.0.0', host: 'test-gateway' },
+          snapshot: { sessionDefaults: { mainSessionKey: 'test-session-key' } },
+          auth: { deviceToken: 'new-device-token' },
+        },
+      });
+
+      await connectPromise;
+      expect(client.isConnected).toBe(true);
+    });
+
+    it('stores returned device token via provider', async () => {
+      const provider = createMockProvider();
+      const setDeviceToken = vi.spyOn(provider, 'setDeviceToken');
+
+      const client = new OpenClawClient({
+        gateway: 'ws://localhost:18789',
+        token: 'test-token',
+        deviceAuthProvider: provider,
+      });
+
+      const connectPromise = client.connect();
+      const ws = MockWebSocket.getLastInstance()!;
+      ws.simulateOpen();
+      ws.simulateMessage({
+        type: 'event',
+        event: 'connect.challenge',
+        payload: { nonce: 'abc123', timestamp: Date.now() },
+      });
+
+      await vi.waitFor(() => {
+        expect(ws.getSentMessages().length).toBeGreaterThan(0);
+      });
+      const connectReq = ws.getLastSentMessage() as { id: string };
+
+      ws.simulateMessage({
+        type: 'res',
+        id: connectReq.id,
+        ok: true,
+        payload: {
+          type: 'hello-ok',
+          protocol: 3,
+          server: { version: '1.0.0', host: 'test-gateway' },
+          snapshot: { sessionDefaults: { mainSessionKey: 'test-session-key' } },
+          auth: { deviceToken: 'persist-this-token' },
+        },
+      });
+
+      await connectPromise;
+      expect(setDeviceToken).toHaveBeenCalledWith('persist-this-token');
+    });
+
+    it('clears device token and retries once on token mismatch', async () => {
+      const provider = createMockProvider({
+        getDeviceToken: async () => 'bad-device-token',
+      });
+      const clearDeviceToken = vi.spyOn(provider, 'clearDeviceToken');
+
+      const client = new OpenClawClient({
+        gateway: 'ws://localhost:18789',
+        token: 'fallback-token',
+        deviceAuthProvider: provider,
+      });
+
+      const connectPromise = client.connect();
+      const ws = MockWebSocket.getLastInstance()!;
+      ws.simulateOpen();
+      ws.simulateMessage({
+        type: 'event',
+        event: 'connect.challenge',
+        payload: { nonce: 'abc123', timestamp: Date.now() },
+      });
+
+      await vi.waitFor(() => {
+        expect(ws.getSentMessages().length).toBeGreaterThan(0);
+      });
+      const firstConnectReq = ws.getLastSentMessage() as {
+        id: string;
+        method: string;
+        params: { auth: { token?: string } };
+      };
+      expect(firstConnectReq.params.auth.token).toBe('bad-device-token');
+
+      ws.simulateMessage({
+        type: 'res',
+        id: firstConnectReq.id,
+        ok: false,
+        error: { code: 'AUTH_FAILED', message: 'gateway token mismatch' },
+      });
+
+      await vi.waitFor(() => {
+        expect(ws.getSentMessages().length).toBeGreaterThanOrEqual(2);
+      });
+      const secondConnectReq = ws.getLastSentMessage() as {
+        id: string;
+        method: string;
+        params: { auth: { token?: string } };
+      };
+      expect(secondConnectReq.method).toBe('connect');
+      expect(secondConnectReq.params.auth.token).toBe('fallback-token');
+      expect(clearDeviceToken).toHaveBeenCalledOnce();
+
+      ws.simulateMessage({
+        type: 'res',
+        id: secondConnectReq.id,
+        ok: true,
+        payload: {
+          type: 'hello-ok',
+          protocol: 3,
+          server: { version: '1.0.0', host: 'test' },
+          snapshot: { sessionDefaults: { mainSessionKey: 'test-session-key' } },
+        },
+      });
+
+      await connectPromise;
+      expect(client.isConnected).toBe(true);
+    });
+
+    it('throws DEVICE_AUTH_UNSUPPORTED for browser strict mode', async () => {
+      const oldWindow = (globalThis as Record<string, unknown>).window;
+      (globalThis as Record<string, unknown>).window = {};
+      try {
+        const provider = createMockProvider({
+          isSupported: () => false,
+        });
+
+        const client = new OpenClawClient({
+          gateway: 'ws://localhost:18789',
+          deviceAuthProvider: provider,
+        });
+
+        await expect(client.connect()).rejects.toMatchObject({
+          message: expect.stringContaining('Device auth requires'),
+          code: 'DEVICE_AUTH_UNSUPPORTED',
+        });
+      } finally {
+        if (oldWindow === undefined) {
+          delete (globalThis as Record<string, unknown>).window;
+        } else {
+          (globalThis as Record<string, unknown>).window = oldWindow;
+        }
+      }
     });
   });
 
@@ -196,6 +429,33 @@ describe('OpenClawClient', () => {
       });
 
       await sendPromise;
+    });
+
+    it('maps chat.send missing write scope to SCOPE_MISSING_WRITE', async () => {
+      const { client, ws } = await createConnectedClient();
+
+      const sendPromise = client.send('Hello, AI!');
+      await vi.waitFor(() =>
+        ws
+          .getSentMessages()
+          .some((m) => (m as { method?: string }).method === 'chat.send')
+      );
+
+      const sendReq = ws.getSentMessages().find(
+        (m) => (m as { method?: string }).method === 'chat.send'
+      ) as { id: string };
+
+      ws.simulateMessage({
+        type: 'res',
+        id: sendReq.id,
+        ok: false,
+        error: { code: 'INVALID_REQUEST', message: 'missing scope: operator.write' },
+      });
+
+      await expect(sendPromise).rejects.toMatchObject({
+        message: 'missing scope: operator.write',
+        code: 'SCOPE_MISSING_WRITE',
+      });
     });
 
     it('should emit message event on server message', async () => {
@@ -341,6 +601,33 @@ describe('OpenClawClient', () => {
           content: 'Hello World!',
         })
       );
+    });
+
+    it('ignores chat events from different session keys', async () => {
+      const { client, ws } = await createConnectedClient();
+
+      const messageHandler = vi.fn();
+      const streamStartHandler = vi.fn();
+      client.on('message', messageHandler);
+      client.on('streamStart', streamStartHandler);
+
+      ws.simulateMessage({
+        type: 'event',
+        event: 'chat',
+        payload: {
+          runId: 'run-other',
+          sessionKey: 'other-session',
+          seq: 1,
+          state: 'final',
+          message: {
+            role: 'assistant',
+            content: [{ type: 'text', text: 'Should be ignored' }],
+          },
+        },
+      });
+
+      expect(streamStartHandler).not.toHaveBeenCalled();
+      expect(messageHandler).not.toHaveBeenCalled();
     });
   });
 

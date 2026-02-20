@@ -28,12 +28,22 @@ export interface UseOpenClawChatReturn {
 export declare function useOpenClawChat(options: UseOpenClawChatOptions): UseOpenClawChatReturn;
 
 // ChatWidget component
+export interface ChatWidgetAuthTexts {
+  pairingRequiredTitle?: string;
+  pairingRequiredBody?: string;
+  scopeMissingWriteTitle?: string;
+  scopeMissingWriteBody?: string;
+  retryConnectionButton?: string;
+  retryingConnectionButton?: string;
+}
+
 export interface ChatWidgetProps extends OpenClawClientOptions {
   position?: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left' | 'inline';
   theme?: 'light' | 'dark' | 'auto';
   title?: string;
   placeholder?: string;
   defaultOpen?: boolean;
+  authTexts?: ChatWidgetAuthTexts;
 }
 
 export declare const ChatWidget: DefineComponent<ChatWidgetProps, object, unknown>;

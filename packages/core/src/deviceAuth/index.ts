@@ -1,0 +1,1 @@
+export { createBrowserDeviceAuthProvider } from './browserDeviceAuth';
