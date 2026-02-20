@@ -2,6 +2,7 @@
 import { ref, computed, watch, nextTick } from 'vue';
 import type { OpenClawClientOptions, Message } from 'openclaw-webchat';
 import { useOpenClawChat } from '../composables/useOpenClawChat';
+import { getOrCreateStableSessionKey } from './sessionKey';
 
 export interface ChatWidgetAuthTexts {
   pairingRequiredTitle?: string;
@@ -58,6 +59,7 @@ defineSlots<{
 const isOpen = ref(props.defaultOpen);
 const input = ref('');
 const messagesEndRef = ref<HTMLDivElement | null>(null);
+const resolvedSessionKey = props.sessionKey || getOrCreateStableSessionKey();
 
 // Explicitly construct client options from props, filtering out undefined values
 const clientOptions: OpenClawClientOptions & { autoConnect?: boolean } = Object.fromEntries(
@@ -73,7 +75,7 @@ const clientOptions: OpenClawClientOptions & { autoConnect?: boolean } = Object.
     maxReconnectAttempts: props.maxReconnectAttempts,
     connectionTimeout: props.connectionTimeout,
     debug: props.debug,
-    sessionKey: props.sessionKey,
+    sessionKey: resolvedSessionKey,
     autoConnect: props.autoConnect,
   }).filter(([_, v]) => v !== undefined)
 ) as OpenClawClientOptions & { autoConnect?: boolean };
