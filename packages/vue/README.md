@@ -148,6 +148,10 @@ interface ChatWidgetProps {
 }
 ```
 
+Session behavior:
+- By default, `ChatWidget` uses an isolated browser-local session key (`webchat:<stable-id>`), so conversations do not mix with other channels by accident.
+- Pass `sessionKey` explicitly if you want to override/share a specific session.
+
 `authTexts` defaults:
 - `pairingRequiredTitle`: `Pairing Required`
 - `pairingRequiredBody`: `Approve this device on gateway host, then retry connection.`
