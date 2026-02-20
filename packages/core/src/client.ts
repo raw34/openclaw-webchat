@@ -480,7 +480,7 @@ export class OpenClawClient {
         id: this.options.clientName,
         version: this.options.clientVersion,
         platform: isBrowser ? 'browser' : 'node',
-        mode: isBrowser ? 'operator' : 'node',
+        mode: 'node',
       },
       role: 'operator',
       scopes: ['operator.read', 'operator.write'],
@@ -502,7 +502,7 @@ export class OpenClawClient {
     if (challenge && provider?.isSupported()) {
       params.device = await provider.signChallenge(challenge, {
         clientId: this.options.clientName,
-        clientMode: isBrowser ? 'operator' : 'node',
+        clientMode: 'node',
         role: 'operator',
         scopes: params.scopes,
         token: authToken ?? null,
