@@ -61,6 +61,7 @@ function App() {
   const [isConfigured, setIsConfigured] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<ErrorViewModel | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   async function probeConnection(): Promise<void> {
     const probe = new OpenClawClient({
@@ -83,6 +84,7 @@ function App() {
 
     setIsConnecting(true);
     setError(null);
+    setNotice(null);
 
     try {
       await probeConnection();
@@ -105,8 +107,10 @@ function App() {
     try {
       await client.resetDeviceIdentity();
       setError(null);
+      setNotice('Device identity reset. Click "Retry Connection" to connect again.');
     } catch (err) {
       setError(normalizeError(err));
+      setNotice(null);
     }
   }
 
@@ -163,6 +167,8 @@ function App() {
               </div>
             </div>
           ) : null}
+
+          {notice ? <div className="notice-card">{notice}</div> : null}
         </form>
       ) : (
         <>

@@ -146,6 +146,16 @@ body {
   flex-wrap: wrap;
 }
 
+.notice-card {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #b9d9ff;
+  background: #eef6ff;
+  color: #174a7e;
+  font-size: 13px;
+}
+
 .back-link {
   display: inline-block;
   margin-bottom: 20px;
