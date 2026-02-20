@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import type { OpenClawClientOptions, Message } from 'openclaw-webchat';
 import { useOpenClawChat } from '../hooks/useOpenClawChat';
+import { getOrCreateStableSessionKey } from './sessionKey';
 
 export interface ChatWidgetAuthTexts {
   pairingRequiredTitle?: string;
@@ -182,6 +183,11 @@ export function ChatWidget({
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const resolvedSessionKey = clientOptions.sessionKey ?? getOrCreateStableSessionKey();
+  const resolvedClientOptions = {
+    ...clientOptions,
+    sessionKey: resolvedSessionKey,
+  };
 
   const {
     messages,
@@ -191,7 +197,7 @@ export function ChatWidget({
     error,
     send,
     connect,
-  } = useOpenClawChat(clientOptions);
+  } = useOpenClawChat(resolvedClientOptions);
   const [isRetryingConnect, setIsRetryingConnect] = useState(false);
   const resolvedAuthTexts: Required<ChatWidgetAuthTexts> = {
     pairingRequiredTitle: authTexts?.pairingRequiredTitle ?? 'Pairing Required',
