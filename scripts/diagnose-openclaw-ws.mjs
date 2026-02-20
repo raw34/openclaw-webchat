@@ -15,6 +15,10 @@
  *   --session-key <sessionKey>
  *   --connect-only true
  *   --token-env GATEWAY_AUTH_TOKEN
+ *
+ * Failure output includes:
+ *   category=<token mismatch|pairing required|missing scope|...>
+ *   code=<AUTH_FAILED|PAIRING_REQUIRED|SCOPE_MISSING_WRITE|...>
  */
 
 const DEFAULT_SCOPES = ["operator.read", "operator.write"];
@@ -68,18 +72,33 @@ function usage() {
 function classify(message) {
   const text = String(message || "").toLowerCase();
   if (text.includes("gateway token mismatch")) {
-    return "token mismatch";
+    return { category: "token mismatch", code: "AUTH_FAILED" };
+  }
+  if (text.includes("device token mismatch")) {
+    return { category: "token mismatch", code: "AUTH_FAILED" };
+  }
+  if (text.includes("token mismatch")) {
+    return { category: "token mismatch", code: "AUTH_FAILED" };
+  }
+  if (text.includes("pairing required") || text.includes("pairing")) {
+    return { category: "pairing required", code: "PAIRING_REQUIRED" };
   }
   if (text.includes("missing scope")) {
-    return "missing scope";
+    if (text.includes("operator.write")) {
+      return { category: "missing scope", code: "SCOPE_MISSING_WRITE" };
+    }
+    return { category: "missing scope", code: "INVALID_REQUEST" };
   }
   if (text.includes("invalid connect params")) {
-    return "connect schema mismatch";
+    return { category: "connect schema mismatch", code: "INVALID_REQUEST" };
+  }
+  if (text.includes("indexeddb") || text.includes("webcrypto")) {
+    return { category: "device auth unsupported", code: "DEVICE_AUTH_UNSUPPORTED" };
   }
   if (text.includes("unauthorized")) {
-    return "unauthorized";
+    return { category: "unauthorized", code: "AUTH_FAILED" };
   }
-  return "unknown";
+  return { category: "unknown", code: "UNKNOWN" };
 }
 
 function toBool(value) {
@@ -251,11 +270,13 @@ async function run() {
 
         const message =
           frame?.error?.message || frame?.error?.code || "connect failed";
+        const classified = classify(message);
         done({
           ok: false,
           type: "connect_error",
           message,
-          category: classify(message),
+          category: classified.category,
+          normalizedCode: classified.code,
           error: frame.error,
         });
         return;
@@ -277,11 +298,13 @@ async function run() {
 
         const message =
           frame?.error?.message || frame?.error?.code || "chat.send failed";
+        const classified = classify(message);
         done({
           ok: false,
           type: "chat_send_error",
           message,
-          category: classify(message),
+          category: classified.category,
+          normalizedCode: classified.code,
           error: frame.error,
         });
         return;
@@ -325,7 +348,7 @@ async function run() {
   }
 
   console.log(
-    `[${now()}] result=FAIL type=${result.type} category=${result.category || "n/a"} message="${sanitizeText(result.message, token)}"`
+    `[${now()}] result=FAIL type=${result.type} category=${result.category || "n/a"} code=${result.normalizedCode || "UNKNOWN"} message="${sanitizeText(result.message, token)}"`
   );
   if (result.error) {
     console.log(`[${now()}] error=${sanitizeText(JSON.stringify(result.error), token)}`);
