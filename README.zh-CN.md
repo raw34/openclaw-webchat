@@ -226,6 +226,12 @@ GATEWAY_AUTH_TOKEN=*** node scripts/diagnose-openclaw-ws.mjs --url wss://your-ga
 - 浏览器模式下，OpenClaw 设备认证依赖 IndexedDB 与 WebCrypto。
 - 若设备身份缓存异常，可调用 `client.resetDeviceIdentity()` 后重连。
 
+首次配对流程（WebChat/demo）：
+1. 在 demo 发起连接（或运行默认 `device-auth=true` 的诊断脚本）。
+2. 若返回 `PAIRING_REQUIRED`，在网关机器上批准 pending 设备。
+3. 回到 demo 点击 `Retry Connection`（按设计为手动重试）。
+4. 如有需要，先点击 `Reset Device Identity`，再重试连接。
+
 ## 本地开发
 
 ```bash

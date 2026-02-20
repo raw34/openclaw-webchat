@@ -226,6 +226,12 @@ GATEWAY_AUTH_TOKEN=*** node scripts/diagnose-openclaw-ws.mjs --url wss://your-ga
 - In browser mode, OpenClaw device auth requires both IndexedDB and WebCrypto.
 - If device identity is stale, call `client.resetDeviceIdentity()` and reconnect.
 
+First pairing flow (WebChat/demo):
+1. Connect from demo (or run diagnose script with default `device-auth=true`).
+2. If response is `PAIRING_REQUIRED`, approve the pending device on gateway host.
+3. Click `Retry Connection` in demo (manual retry by design).
+4. If needed, click `Reset Device Identity`, then retry again.
+
 ## Development
 
 ```bash
