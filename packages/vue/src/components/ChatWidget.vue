@@ -3,6 +3,15 @@ import { ref, computed, watch, nextTick } from 'vue';
 import type { OpenClawClientOptions, Message } from 'openclaw-webchat';
 import { useOpenClawChat } from '../composables/useOpenClawChat';
 
+export interface ChatWidgetAuthTexts {
+  pairingRequiredTitle?: string;
+  pairingRequiredBody?: string;
+  scopeMissingWriteTitle?: string;
+  scopeMissingWriteBody?: string;
+  retryConnectionButton?: string;
+  retryingConnectionButton?: string;
+}
+
 export interface ChatWidgetProps {
   // OpenClawClientOptions - explicitly defined for Vue props
   gateway: string;
@@ -24,6 +33,7 @@ export interface ChatWidgetProps {
   placeholder?: string;
   defaultOpen?: boolean;
   autoConnect?: boolean;
+  authTexts?: ChatWidgetAuthTexts;
 }
 
 const props = withDefaults(defineProps<ChatWidgetProps>(), {
@@ -78,7 +88,27 @@ const {
   send: clientSend,
 } = useOpenClawChat(clientOptions);
 const isRetryingConnect = ref(false);
-const isPairingRequired = computed(() => (error.value as { code?: string } | null)?.code === 'PAIRING_REQUIRED');
+const authIssue = computed(() => {
+  const code = (error.value as { code?: string } | null)?.code;
+  if (code === 'PAIRING_REQUIRED') {
+    return 'pairing_required';
+  }
+  if (code === 'SCOPE_MISSING_WRITE') {
+    return 'scope_missing_write';
+  }
+  return 'none';
+});
+const resolvedAuthTexts = computed<Required<ChatWidgetAuthTexts>>(() => ({
+  pairingRequiredTitle: props.authTexts?.pairingRequiredTitle ?? 'Pairing Required',
+  pairingRequiredBody:
+    props.authTexts?.pairingRequiredBody ?? 'Approve this device on gateway host, then retry connection.',
+  scopeMissingWriteTitle: props.authTexts?.scopeMissingWriteTitle ?? 'Permission Required',
+  scopeMissingWriteBody:
+    props.authTexts?.scopeMissingWriteBody ??
+    'This device is missing operator.write. Ask an administrator to grant write scope, then retry connection.',
+  retryConnectionButton: props.authTexts?.retryConnectionButton ?? 'Retry Connection',
+  retryingConnectionButton: props.authTexts?.retryingConnectionButton ?? 'Retrying...',
+}));
 
 const themes = {
   light: {
@@ -220,10 +250,12 @@ async function handleRetryConnection() {
           </div>
         </slot>
       </template>
-      <div v-if="isPairingRequired" class="openclaw-pairing">
-        <div class="openclaw-pairing-title">Pairing Required</div>
+      <div v-if="authIssue !== 'none'" class="openclaw-pairing">
+        <div class="openclaw-pairing-title">
+          {{ authIssue === 'pairing_required' ? resolvedAuthTexts.pairingRequiredTitle : resolvedAuthTexts.scopeMissingWriteTitle }}
+        </div>
         <div class="openclaw-pairing-text">
-          Approve this device on gateway host, then retry connection.
+          {{ authIssue === 'pairing_required' ? resolvedAuthTexts.pairingRequiredBody : resolvedAuthTexts.scopeMissingWriteBody }}
         </div>
         <button
           @click="handleRetryConnection"
@@ -234,7 +266,7 @@ async function handleRetryConnection() {
             opacity: isRetryingConnect ? 0.6 : 1,
           }"
         >
-          {{ isRetryingConnect ? 'Retrying...' : 'Retry Connection' }}
+          {{ isRetryingConnect ? resolvedAuthTexts.retryingConnectionButton : resolvedAuthTexts.retryConnectionButton }}
         </button>
       </div>
       <div v-if="error" class="openclaw-error">
@@ -326,10 +358,12 @@ async function handleRetryConnection() {
             </div>
           </slot>
         </template>
-        <div v-if="isPairingRequired" class="openclaw-pairing">
-          <div class="openclaw-pairing-title">Pairing Required</div>
+        <div v-if="authIssue !== 'none'" class="openclaw-pairing">
+          <div class="openclaw-pairing-title">
+            {{ authIssue === 'pairing_required' ? resolvedAuthTexts.pairingRequiredTitle : resolvedAuthTexts.scopeMissingWriteTitle }}
+          </div>
           <div class="openclaw-pairing-text">
-            Approve this device on gateway host, then retry connection.
+            {{ authIssue === 'pairing_required' ? resolvedAuthTexts.pairingRequiredBody : resolvedAuthTexts.scopeMissingWriteBody }}
           </div>
           <button
             @click="handleRetryConnection"
@@ -340,7 +374,7 @@ async function handleRetryConnection() {
               opacity: isRetryingConnect ? 0.6 : 1,
             }"
           >
-            {{ isRetryingConnect ? 'Retrying...' : 'Retry Connection' }}
+            {{ isRetryingConnect ? resolvedAuthTexts.retryingConnectionButton : resolvedAuthTexts.retryConnectionButton }}
           </button>
         </div>
         <div v-if="error" class="openclaw-error">

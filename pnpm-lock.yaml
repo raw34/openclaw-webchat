@@ -53,6 +53,9 @@ importers:
       vitest:
         specifier: ^2.1.0
         version: 2.1.9(@types/node@22.19.11)(jsdom@26.1.0)
+      vue:
+        specifier: ^3.5.0
+        version: 3.5.28(typescript@5.9.3)
       vue-eslint-parser:
         specifier: ^10.4.0
         version: 10.4.0(eslint@9.39.2)
