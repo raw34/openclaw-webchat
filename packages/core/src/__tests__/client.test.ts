@@ -602,6 +602,33 @@ describe('OpenClawClient', () => {
         })
       );
     });
+
+    it('ignores chat events from different session keys', async () => {
+      const { client, ws } = await createConnectedClient();
+
+      const messageHandler = vi.fn();
+      const streamStartHandler = vi.fn();
+      client.on('message', messageHandler);
+      client.on('streamStart', streamStartHandler);
+
+      ws.simulateMessage({
+        type: 'event',
+        event: 'chat',
+        payload: {
+          runId: 'run-other',
+          sessionKey: 'other-session',
+          seq: 1,
+          state: 'final',
+          message: {
+            role: 'assistant',
+            content: [{ type: 'text', text: 'Should be ignored' }],
+          },
+        },
+      });
+
+      expect(streamStartHandler).not.toHaveBeenCalled();
+      expect(messageHandler).not.toHaveBeenCalled();
+    });
   });
 
   describe('reconnection', () => {

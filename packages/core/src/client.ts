@@ -423,6 +423,16 @@ export class OpenClawClient {
       };
     };
 
+    if (this.sessionKey && chatPayload.sessionKey && chatPayload.sessionKey !== this.sessionKey) {
+      this.log(
+        'Ignoring chat event for different session:',
+        chatPayload.sessionKey,
+        'expected:',
+        this.sessionKey
+      );
+      return;
+    }
+
     this.log('Chat event:', chatPayload.state, 'seq:', chatPayload.seq);
 
     const messageId = chatPayload.runId || 'stream';
