@@ -11,6 +11,9 @@
  *   --scopes operator.read,operator.write
  *   --timeout 10000
  *   --client-id webchat
+ *   --chat-message "diagnostic ping"
+ *   --session-key <sessionKey>
+ *   --connect-only true
  *   --token-env GATEWAY_AUTH_TOKEN
  */
 
@@ -51,6 +54,9 @@ function usage() {
       "  --scopes <csv>          default: operator.read,operator.write",
       "  --timeout <ms>          default: 10000",
       "  --client-id <id>        default: webchat",
+      "  --chat-message <text>   default: diagnostic ping",
+      "  --session-key <key>     override sessionKey for chat.send probe",
+      "  --connect-only true     stop after connect success (skip chat.send probe)",
       "  --token-env <name>      default: GATEWAY_AUTH_TOKEN",
       "",
       "Example:",
@@ -74,6 +80,10 @@ function classify(message) {
     return "unauthorized";
   }
   return "unknown";
+}
+
+function toBool(value) {
+  return String(value || "").toLowerCase() === "true";
 }
 
 function maskUrl(raw) {
@@ -100,6 +110,9 @@ async function run() {
   const token = process.env[tokenEnv];
   const timeoutMs = Number(args.timeout || DEFAULT_TIMEOUT_MS);
   const clientId = args["client-id"] || "webchat";
+  const chatMessage = args["chat-message"] || "diagnostic ping";
+  const sessionKeyOverride = args["session-key"];
+  const connectOnly = toBool(args["connect-only"]);
   const scopes = (args.scopes ? args.scopes.split(",") : DEFAULT_SCOPES)
     .map((x) => x.trim())
     .filter(Boolean);
@@ -116,11 +129,15 @@ async function run() {
   console.log(`[${now()}] url=${maskUrl(url)}`);
   console.log(`[${now()}] client.id=${clientId}`);
   console.log(`[${now()}] scopes=${scopes.join(",")}`);
+  console.log(`[${now()}] connectOnly=${connectOnly}`);
 
   const result = await new Promise((resolve) => {
     let settled = false;
     let gotChallenge = false;
+    let connectOkPayload = null;
+    let awaitingChatResult = false;
     const requestId = "connect-1";
+    const chatRequestId = "chat-1";
 
     const done = (payload) => {
       if (settled) return;
@@ -191,12 +208,44 @@ async function run() {
 
       if (frame?.type === "res" && frame?.id === requestId) {
         if (frame.ok) {
-          done({
-            ok: true,
-            type: "hello_ok",
-            message: "connect success (hello-ok)",
-            payload: frame.payload,
-          });
+          connectOkPayload = frame.payload || null;
+          if (connectOnly) {
+            done({
+              ok: true,
+              type: "hello_ok",
+              message: "connect success (hello-ok)",
+              payload: frame.payload,
+            });
+            return;
+          }
+
+          const mainSessionKey =
+            sessionKeyOverride ||
+            frame?.payload?.snapshot?.sessionDefaults?.mainSessionKey;
+          if (!mainSessionKey) {
+            done({
+              ok: false,
+              type: "chat_probe_unavailable",
+              category: "missing session key",
+              message:
+                "connect succeeded, but no sessionKey found for chat.send probe; pass --session-key",
+            });
+            return;
+          }
+
+          const chatFrame = {
+            type: "req",
+            id: chatRequestId,
+            method: "chat.send",
+            params: {
+              sessionKey: mainSessionKey,
+              message: chatMessage,
+              idempotencyKey: `diagnose-${Date.now()}`,
+            },
+          };
+          awaitingChatResult = true;
+          ws.send(JSON.stringify(chatFrame));
+          console.log(`[${now()}] sent chat.send request`);
           return;
         }
 
@@ -208,6 +257,53 @@ async function run() {
           message,
           category: classify(message),
           error: frame.error,
+        });
+        return;
+      }
+
+      if (frame?.type === "res" && frame?.id === chatRequestId) {
+        if (frame.ok) {
+          done({
+            ok: true,
+            type: "chat_send_ok",
+            message: "connect + chat.send success",
+            payload: {
+              connect: connectOkPayload,
+              chat: frame.payload,
+            },
+          });
+          return;
+        }
+
+        const message =
+          frame?.error?.message || frame?.error?.code || "chat.send failed";
+        done({
+          ok: false,
+          type: "chat_send_error",
+          message,
+          category: classify(message),
+          error: frame.error,
+        });
+        return;
+      }
+
+      // Some gateway versions may emit events before/without a chat.send res.
+      if (
+        awaitingChatResult &&
+        frame?.type === "event" &&
+        (frame?.event === "chat" ||
+          frame?.event === "message" ||
+          frame?.event === "stream.start" ||
+          frame?.event === "stream.chunk")
+      ) {
+        done({
+          ok: true,
+          type: "chat_event_only",
+          message: `connect success; chat observed via event (${frame.event}) without explicit chat.send res`,
+          payload: {
+            connect: connectOkPayload,
+            firstChatEvent: frame.event,
+          },
         });
       }
     });
