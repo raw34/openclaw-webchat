@@ -4,7 +4,7 @@ export type { UseOpenClawChatOptions, UseOpenClawChatReturn } from './hooks/useO
 
 // Components
 export { ChatWidget } from './components/ChatWidget';
-export type { ChatWidgetProps } from './components/ChatWidget';
+export type { ChatWidgetProps, ChatWidgetAuthTexts } from './components/ChatWidget';
 
 // Re-export core types
 export type {
