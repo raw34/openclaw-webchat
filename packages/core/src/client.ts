@@ -41,7 +41,7 @@ const DEFAULT_OPTIONS: Required<
   maxReconnectAttempts: 10,
   connectionTimeout: 10000,
   debug: false,
-  clientName: 'openclaw-webchat',
+  clientName: 'webchat',
   clientVersion: '0.1.0',
 };
 

@@ -200,7 +200,7 @@ describe('OpenClawClient', () => {
       expect(signChallenge).toHaveBeenCalledWith(
         challenge,
         expect.objectContaining({
-          clientId: 'openclaw-webchat',
+          clientId: 'webchat',
           clientMode: 'node',
           role: 'operator',
         })
