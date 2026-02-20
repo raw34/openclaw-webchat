@@ -177,7 +177,9 @@ export function ChatWidget({
     streamingContent,
     error,
     send,
+    connect,
   } = useOpenClawChat(clientOptions);
+  const [isRetryingConnect, setIsRetryingConnect] = useState(false);
 
   // Get current theme colors
   const resolvedTheme = theme === 'auto'
@@ -245,6 +247,18 @@ export function ChatWidget({
       {content || '...'}
     </div>
   );
+
+  const isPairingRequired = (error as { code?: string } | null)?.code === 'PAIRING_REQUIRED';
+
+  const handleRetryConnection = async () => {
+    if (isRetryingConnect) return;
+    setIsRetryingConnect(true);
+    try {
+      await connect();
+    } finally {
+      setIsRetryingConnect(false);
+    }
+  };
 
   // Inline mode - render directly
   if (position === 'inline') {
@@ -332,6 +346,36 @@ export function ChatWidget({
             renderLoading
               ? renderLoading(streamingContent)
               : renderDefaultLoading(streamingContent)
+          )}
+          {isPairingRequired && (
+            <div
+              style={{
+                marginBottom: 12,
+                padding: '10px 12px',
+                borderRadius: 8,
+                border: '1px solid #f0c2c2',
+                background: '#fff7f7',
+              }}
+            >
+              <div style={{ color: '#9f2f2f', fontWeight: 600, fontSize: 13, marginBottom: 6 }}>
+                Pairing Required
+              </div>
+              <div style={{ color: '#5f3b3b', fontSize: 13, marginBottom: 8 }}>
+                Approve this device on gateway host, then retry connection.
+              </div>
+              <button
+                onClick={() => void handleRetryConnection()}
+                disabled={isRetryingConnect}
+                style={{
+                  ...defaultStyles.sendButton,
+                  backgroundColor: colors.buttonBg,
+                  color: colors.buttonColor,
+                  opacity: isRetryingConnect ? 0.6 : 1,
+                }}
+              >
+                {isRetryingConnect ? 'Retrying...' : 'Retry Connection'}
+              </button>
+            </div>
           )}
           {error && (
             <div style={{ color: '#dc3545', padding: '8px 12px', fontSize: 14 }}>

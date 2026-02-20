@@ -59,42 +59,13 @@ function App() {
   );
   const [token, setToken] = useState(localStorage.getItem('openclaw-token') || DEFAULT_TOKEN);
   const [isConfigured, setIsConfigured] = useState(false);
-  const [isConnecting, setIsConnecting] = useState(false);
-  const [error, setError] = useState<ErrorViewModel | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-
-  async function probeConnection(): Promise<void> {
-    const probe = new OpenClawClient({
-      gateway,
-      token: token || undefined,
-      reconnect: false,
-      connectionTimeout: 8000,
-    });
-
-    try {
-      await probe.connect();
-    } finally {
-      probe.disconnect();
-    }
-  }
 
   async function handleConnect() {
     localStorage.setItem('openclaw-gateway', gateway);
     localStorage.setItem('openclaw-token', token);
-
-    setIsConnecting(true);
-    setError(null);
     setNotice(null);
-
-    try {
-      await probeConnection();
-      setIsConfigured(true);
-    } catch (err) {
-      setIsConfigured(false);
-      setError(normalizeError(err));
-    } finally {
-      setIsConnecting(false);
-    }
+    setIsConfigured(true);
   }
 
   async function handleResetDeviceIdentity() {
@@ -106,11 +77,10 @@ function App() {
 
     try {
       await client.resetDeviceIdentity();
-      setError(null);
       setNotice('Device identity reset. Click "Retry Connection" to connect again.');
     } catch (err) {
-      setError(normalizeError(err));
-      setNotice(null);
+      const mapped = normalizeError(err);
+      setNotice(`${mapped.title}: ${mapped.hint}`);
     }
   }
 
@@ -146,27 +116,7 @@ function App() {
               placeholder="gateway auth token"
             />
           </label>
-          <button type="submit" disabled={isConnecting}>
-            {isConnecting ? 'Connecting...' : 'Connect'}
-          </button>
-
-          {error ? (
-            <div className="error-card">
-              <div className="error-title">
-                {error.title} ({error.code})
-              </div>
-              <div className="error-message">{error.message}</div>
-              <div className="error-hint">{error.hint}</div>
-              <div className="action-row">
-                <button type="button" onClick={() => void handleConnect()} disabled={isConnecting}>
-                  Retry Connection
-                </button>
-                <button type="button" onClick={() => void handleResetDeviceIdentity()}>
-                  Reset Device Identity
-                </button>
-              </div>
-            </div>
-          ) : null}
+          <button type="submit">Connect</button>
 
           {notice ? <div className="notice-card">{notice}</div> : null}
         </form>

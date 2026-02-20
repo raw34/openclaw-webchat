@@ -74,8 +74,11 @@ const {
   isLoading,
   streamingContent,
   error,
+  connect,
   send: clientSend,
 } = useOpenClawChat(clientOptions);
+const isRetryingConnect = ref(false);
+const isPairingRequired = computed(() => (error.value as { code?: string } | null)?.code === 'PAIRING_REQUIRED');
 
 const themes = {
   light: {
@@ -168,6 +171,16 @@ function handleKeyDown(e: KeyboardEvent) {
     handleSend();
   }
 }
+
+async function handleRetryConnection() {
+  if (isRetryingConnect.value) return;
+  isRetryingConnect.value = true;
+  try {
+    await connect();
+  } finally {
+    isRetryingConnect.value = false;
+  }
+}
 </script>
 
 <template>
@@ -207,6 +220,23 @@ function handleKeyDown(e: KeyboardEvent) {
           </div>
         </slot>
       </template>
+      <div v-if="isPairingRequired" class="openclaw-pairing">
+        <div class="openclaw-pairing-title">Pairing Required</div>
+        <div class="openclaw-pairing-text">
+          Approve this device on gateway host, then retry connection.
+        </div>
+        <button
+          @click="handleRetryConnection"
+          :disabled="isRetryingConnect"
+          :style="{
+            backgroundColor: colors.buttonBg,
+            color: colors.buttonColor,
+            opacity: isRetryingConnect ? 0.6 : 1,
+          }"
+        >
+          {{ isRetryingConnect ? 'Retrying...' : 'Retry Connection' }}
+        </button>
+      </div>
       <div v-if="error" class="openclaw-error">
         Error: {{ error.message }}
       </div>
@@ -296,6 +326,23 @@ function handleKeyDown(e: KeyboardEvent) {
             </div>
           </slot>
         </template>
+        <div v-if="isPairingRequired" class="openclaw-pairing">
+          <div class="openclaw-pairing-title">Pairing Required</div>
+          <div class="openclaw-pairing-text">
+            Approve this device on gateway host, then retry connection.
+          </div>
+          <button
+            @click="handleRetryConnection"
+            :disabled="isRetryingConnect"
+            :style="{
+              backgroundColor: colors.buttonBg,
+              color: colors.buttonColor,
+              opacity: isRetryingConnect ? 0.6 : 1,
+            }"
+          >
+            {{ isRetryingConnect ? 'Retrying...' : 'Retry Connection' }}
+          </button>
+        </div>
         <div v-if="error" class="openclaw-error">
           Error: {{ error.message }}
         </div>
@@ -394,6 +441,36 @@ function handleKeyDown(e: KeyboardEvent) {
   color: #dc3545;
   padding: 8px 12px;
   font-size: 14px;
+}
+
+.openclaw-pairing {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #f0c2c2;
+  background: #fff7f7;
+}
+
+.openclaw-pairing-title {
+  color: #9f2f2f;
+  font-weight: 600;
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+
+.openclaw-pairing-text {
+  color: #5f3b3b;
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+
+.openclaw-pairing button {
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
 }
 
 .openclaw-input {

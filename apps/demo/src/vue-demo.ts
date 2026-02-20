@@ -58,42 +58,13 @@ const App = defineComponent({
     const gateway = ref(localStorage.getItem('openclaw-gateway') || DEFAULT_GATEWAY);
     const token = ref(localStorage.getItem('openclaw-token') || DEFAULT_TOKEN);
     const isConfigured = ref(false);
-    const isConnecting = ref(false);
-    const error = ref<ErrorViewModel | null>(null);
     const notice = ref<string | null>(null);
-
-    async function probeConnection(): Promise<void> {
-      const probe = new OpenClawClient({
-        gateway: gateway.value,
-        token: token.value || undefined,
-        reconnect: false,
-        connectionTimeout: 8000,
-      });
-
-      try {
-        await probe.connect();
-      } finally {
-        probe.disconnect();
-      }
-    }
 
     async function handleConnect() {
       localStorage.setItem('openclaw-gateway', gateway.value);
       localStorage.setItem('openclaw-token', token.value);
-
-      isConnecting.value = true;
-      error.value = null;
       notice.value = null;
-
-      try {
-        await probeConnection();
-        isConfigured.value = true;
-      } catch (err) {
-        isConfigured.value = false;
-        error.value = normalizeError(err);
-      } finally {
-        isConnecting.value = false;
-      }
+      isConfigured.value = true;
     }
 
     async function handleResetDeviceIdentity() {
@@ -105,11 +76,10 @@ const App = defineComponent({
 
       try {
         await client.resetDeviceIdentity();
-        error.value = null;
         notice.value = 'Device identity reset. Click "Retry Connection" to connect again.';
       } catch (err) {
-        error.value = normalizeError(err);
-        notice.value = null;
+        const mapped = normalizeError(err);
+        notice.value = `${mapped.title}: ${mapped.hint}`;
       }
     }
 
@@ -146,39 +116,9 @@ const App = defineComponent({
               ]),
               h(
                 'button',
-                { type: 'submit', disabled: isConnecting.value },
-                isConnecting.value ? 'Connecting...' : 'Connect'
+                { type: 'submit' },
+                'Connect'
               ),
-              error.value
-                ? h('div', { class: 'error-card' }, [
-                    h(
-                      'div',
-                      { class: 'error-title' },
-                      `${error.value.title} (${error.value.code})`
-                    ),
-                    h('div', { class: 'error-message' }, error.value.message),
-                    h('div', { class: 'error-hint' }, error.value.hint),
-                    h('div', { class: 'action-row' }, [
-                      h(
-                        'button',
-                        {
-                          type: 'button',
-                          disabled: isConnecting.value,
-                          onClick: () => void handleConnect(),
-                        },
-                        'Retry Connection'
-                      ),
-                      h(
-                        'button',
-                        {
-                          type: 'button',
-                          onClick: () => void handleResetDeviceIdentity(),
-                        },
-                        'Reset Device Identity'
-                      ),
-                    ]),
-                  ])
-                : null,
               notice.value ? h('div', { class: 'notice-card' }, notice.value) : null,
             ])
           : h('div', [
