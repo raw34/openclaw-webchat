@@ -128,7 +128,6 @@ export class OpenClawClient {
 
         this.ws.onmessage = async (event) => {
           try {
-            this.log('Received raw message:', event.data);
             const frame = JSON.parse(event.data) as Frame;
             await this.handleFrame(frame, resolve, reject, timeout);
           } catch (err) {
