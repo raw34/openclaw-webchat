@@ -179,6 +179,7 @@ interface OpenClawClientOptions {
   token?: string;               // Auth token
   password?: string;            // Auth password (alternative)
   deviceToken?: string;         // Device token for persistent sessions
+  deviceAuthProvider?: DeviceAuthProvider; // Optional browser device-auth override
   reconnect?: boolean;          // Auto-reconnect (default: true)
   reconnectInterval?: number;   // Reconnect interval in ms (default: 3000)
   maxReconnectAttempts?: number; // Max attempts (default: 10, -1 for infinite)
@@ -193,6 +194,7 @@ interface OpenClawClientOptions {
 // Connection
 await client.connect();
 client.disconnect();
+await client.resetDeviceIdentity(); // Clear local device identity/token for current gateway
 client.isConnected;           // boolean
 client.connectionState;       // 'disconnected' | 'connecting' | 'connected' | ...
 
@@ -210,6 +212,19 @@ client.on('streamChunk', (messageId, chunk) => {});
 client.on('streamEnd', (messageId) => {});
 client.on('error', (error) => {});
 ```
+
+## Troubleshooting
+
+For gateway handshake debugging, use:
+
+```bash
+GATEWAY_AUTH_TOKEN=*** node scripts/diagnose-openclaw-ws.mjs --url wss://your-gateway/ws
+```
+
+- Use the `/ws` path (for example `wss://gateway.example/ws`).
+- Failures are normalized to `category` and `code` (for example `PAIRING_REQUIRED`, `SCOPE_MISSING_WRITE`).
+- In browser mode, OpenClaw device auth requires both IndexedDB and WebCrypto.
+- If device identity is stale, call `client.resetDeviceIdentity()` and reconnect.
 
 ## Development
 
