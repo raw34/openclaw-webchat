@@ -60,6 +60,7 @@ export interface ConnectParams {
     password?: string;
     deviceToken?: string;
   };
+  device?: DeviceProof;
 }
 
 export interface HelloOkPayload {
@@ -141,6 +142,9 @@ export interface OpenClawClientOptions {
   /** Device token for persistent sessions */
   deviceToken?: string;
 
+  /** Optional override for device-auth behavior */
+  deviceAuthProvider?: DeviceAuthProvider;
+
   /** Client name for identification */
   clientName?: string;
 
@@ -165,6 +169,41 @@ export interface OpenClawClientOptions {
   /** Session key for chat (auto-detected from connection if not provided) */
   sessionKey?: string;
 }
+
+// ============ Device Auth ============
+
+export interface DeviceIdentity {
+  id: string;
+  publicKey: JsonWebKey;
+  algorithm: string;
+}
+
+export interface DeviceProof {
+  id: string;
+  nonce: string;
+  timestamp: number;
+  algorithm: string;
+  publicKey: JsonWebKey;
+  signature: string;
+}
+
+export interface DeviceAuthProvider {
+  isSupported(): boolean;
+  getOrCreateIdentity(): Promise<DeviceIdentity>;
+  signChallenge(challenge: ConnectChallenge): Promise<DeviceProof>;
+  getDeviceToken(): Promise<string | undefined>;
+  setDeviceToken(token: string): Promise<void>;
+  clearDeviceToken(): Promise<void>;
+  resetIdentity?(): Promise<void>;
+}
+
+export type OpenClawErrorCode =
+  | 'AUTH_FAILED'
+  | 'INVALID_REQUEST'
+  | 'PAIRING_REQUIRED'
+  | 'DEVICE_AUTH_UNSUPPORTED'
+  | 'SCOPE_MISSING_WRITE'
+  | 'UNKNOWN';
 
 // ============ Client State ============
 

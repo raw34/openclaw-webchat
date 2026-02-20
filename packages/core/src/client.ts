@@ -1,3 +1,4 @@
+import { createBrowserDeviceAuthProvider } from './deviceAuth';
 import type {
   OpenClawClientOptions,
   OpenClawClientEvents,
@@ -15,6 +16,10 @@ import type {
   ChatInjectParams,
   MessageEvent,
   StreamChunkEvent,
+  ErrorPayload,
+  OpenClawErrorCode,
+  DeviceAuthProvider,
+  ConnectChallenge,
 } from './types';
 
 type EventCallback<T extends keyof OpenClawClientEvents> = OpenClawClientEvents[T];
@@ -40,23 +45,20 @@ const DEFAULT_OPTIONS: Required<
   clientVersion: '0.1.0',
 };
 
+class OpenClawClientError extends Error {
+  code: OpenClawErrorCode;
+  rawCode?: string;
+
+  constructor(message: string, code: OpenClawErrorCode, rawCode?: string) {
+    super(message);
+    this.name = 'OpenClawClientError';
+    this.code = code;
+    this.rawCode = rawCode;
+  }
+}
+
 /**
  * OpenClaw Gateway WebSocket Client
- *
- * @example
- * ```typescript
- * const client = new OpenClawClient({
- *   gateway: 'ws://localhost:18789',
- *   token: 'your-token'
- * });
- *
- * client.on('message', (msg) => {
- *   console.log('AI:', msg.content);
- * });
- *
- * await client.connect();
- * await client.send('Hello, AI!');
- * ```
  */
 export class OpenClawClient {
   private options: OpenClawClientOptions & typeof DEFAULT_OPTIONS;
@@ -78,21 +80,34 @@ export class OpenClawClient {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private deviceToken: string | undefined;
   private sessionKey: string | undefined;
+  private currentStreamingMessageId: string | null = null;
+  private lastStreamedContent = '';
+  private deviceAuthProvider: DeviceAuthProvider | null = null;
+  private lastChallenge: ConnectChallenge | null = null;
+  private hasRetriedTokenMismatch = false;
+  private forceSharedAuthOnce = false;
 
   constructor(options: OpenClawClientOptions) {
     this.options = { ...DEFAULT_OPTIONS, ...options };
     this.deviceToken = options.deviceToken;
     this.sessionKey = options.sessionKey;
+    this.deviceAuthProvider = options.deviceAuthProvider ?? null;
   }
 
   // ============ Connection ============
 
-  /**
-   * Connect to the OpenClaw Gateway
-   */
   async connect(): Promise<void> {
     if (this.state.connectionState === 'connected') {
       return;
+    }
+
+    try {
+      this.ensureDeviceAuthSupport();
+    } catch (error) {
+      const typed = this.toClientError(error);
+      this.setState({ connectionState: 'error', error: typed });
+      this.emit('error', typed);
+      throw typed;
     }
 
     this.setState({ connectionState: 'connecting' });
@@ -142,11 +157,8 @@ export class OpenClawClient {
     });
   }
 
-  /**
-   * Disconnect from the Gateway
-   */
   disconnect(): void {
-    this.options.reconnect = false; // Prevent auto-reconnect
+    this.options.reconnect = false;
     this.clearReconnectTimer();
     this.ws?.close(1000, 'Client disconnect');
     this.ws = null;
@@ -154,25 +166,28 @@ export class OpenClawClient {
     this.emit('disconnected', 'Client disconnect');
   }
 
-  /**
-   * Check if connected
-   */
   get isConnected(): boolean {
     return this.state.connectionState === 'connected';
   }
 
-  /**
-   * Get current connection state
-   */
   get connectionState(): ConnectionState {
     return this.state.connectionState;
   }
 
+  async resetDeviceIdentity(): Promise<void> {
+    this.deviceToken = undefined;
+    const provider = this.getDeviceAuthProvider();
+    if (provider?.resetIdentity) {
+      await provider.resetIdentity();
+      return;
+    }
+    if (provider?.isSupported()) {
+      await provider.clearDeviceToken();
+    }
+  }
+
   // ============ Chat Methods ============
 
-  /**
-   * Send a message to the AI
-   */
   async send(content: string, metadata?: Record<string, unknown>): Promise<void> {
     if (!this.sessionKey) {
       throw new Error('No session key available. Set sessionKey in options or wait for connection.');
@@ -186,18 +201,12 @@ export class OpenClawClient {
     await this.request('chat.send', params);
   }
 
-  /**
-   * Get chat history
-   */
   async getHistory(limit = 50, before?: string): Promise<Message[]> {
     const params: ChatHistoryParams = { limit, before };
     const response = await this.request<{ messages: Message[] }>('chat.history', params);
     return response.messages;
   }
 
-  /**
-   * Inject a system or assistant message (no agent run)
-   */
   async inject(content: string, role: 'assistant' | 'system' = 'system'): Promise<void> {
     const params: ChatInjectParams = { content, role };
     await this.request('chat.inject', params);
@@ -205,29 +214,18 @@ export class OpenClawClient {
 
   // ============ Event Handling ============
 
-  /**
-   * Subscribe to events
-   */
   on<K extends keyof OpenClawClientEvents>(event: K, callback: EventCallback<K>): () => void {
     if (!this.eventListeners.has(event)) {
       this.eventListeners.set(event, new Set());
     }
     this.eventListeners.get(event)!.add(callback);
-
-    // Return unsubscribe function
     return () => this.off(event, callback);
   }
 
-  /**
-   * Unsubscribe from events
-   */
   off<K extends keyof OpenClawClientEvents>(event: K, callback: EventCallback<K>): void {
     this.eventListeners.get(event)?.delete(callback);
   }
 
-  /**
-   * Subscribe to an event once
-   */
   once<K extends keyof OpenClawClientEvents>(event: K, callback: EventCallback<K>): () => void {
     const wrapper = ((...args: Parameters<EventCallback<K>>) => {
       this.off(event, wrapper as EventCallback<K>);
@@ -264,54 +262,61 @@ export class OpenClawClient {
 
     switch (frame.type) {
       case 'req':
-        await this.handleRequest(frame as RequestFrame);
+        await this.handleRequest(frame as RequestFrame, connectReject);
         break;
       case 'res':
-        this.handleResponse(frame as ResponseFrame, connectResolve, connectReject, connectTimeout);
+        await this.handleResponse(
+          frame as ResponseFrame,
+          connectResolve,
+          connectReject,
+          connectTimeout
+        );
         break;
       case 'event':
-        this.handleEvent(frame as EventFrame);
+        await this.handleEvent(frame as EventFrame, connectReject);
         break;
     }
   }
 
-  private async handleRequest(frame: RequestFrame): Promise<void> {
-    // Handle server-initiated requests (e.g., connect.challenge)
+  private async handleRequest(
+    frame: RequestFrame,
+    connectReject?: (reason: Error) => void
+  ): Promise<void> {
     if (frame.method === 'connect.challenge') {
       this.log('Received challenge, sending connect request...');
-      await this.sendConnectRequest();
+      const challenge = this.parseChallenge(frame.params);
+      try {
+        await this.sendConnectRequest(challenge);
+      } catch (error) {
+        if (connectReject) {
+          connectReject(this.toClientError(error));
+        }
+      }
     }
   }
 
-  private handleResponse(
+  private async handleResponse(
     frame: ResponseFrame,
     connectResolve?: (value: void) => void,
     connectReject?: (reason: Error) => void,
     connectTimeout?: ReturnType<typeof setTimeout>
-  ): void {
-    // Handle connection error
-    if (!frame.ok && connectReject) {
-      if (connectTimeout) clearTimeout(connectTimeout);
-      connectReject(new Error(frame.error?.message || 'Connection failed'));
-      return;
-    }
-
-    // Check for hello-ok (connection established)
+  ): Promise<void> {
     const payload = frame.payload as HelloOkPayload;
     if (frame.ok && payload && payload.type === 'hello-ok') {
       this.log('Connected to gateway:', payload.server?.host || payload.server?.version);
 
-      // Save device token if provided
       if (payload.auth?.deviceToken) {
         this.deviceToken = payload.auth.deviceToken;
+        await this.persistDeviceToken(payload.auth.deviceToken);
       }
 
-      // Save session key from snapshot if not already set
       if (!this.sessionKey && payload.snapshot?.sessionDefaults?.mainSessionKey) {
         this.sessionKey = payload.snapshot.sessionDefaults.mainSessionKey;
         this.log('Using session key:', this.sessionKey);
       }
 
+      this.hasRetriedTokenMismatch = false;
+      this.forceSharedAuthOnce = false;
       this.setState({ connectionState: 'connected', reconnectAttempts: 0 });
       this.emit('connected');
 
@@ -320,7 +325,6 @@ export class OpenClawClient {
       return;
     }
 
-    // Handle pending request responses
     const pending = this.pendingRequests.get(frame.id);
     if (pending) {
       clearTimeout(pending.timeout);
@@ -329,44 +333,69 @@ export class OpenClawClient {
       if (frame.ok) {
         pending.resolve(frame.payload);
       } else {
-        pending.reject(new Error(frame.error?.message || 'Request failed'));
+        pending.reject(this.createError(frame.error, 'Request failed'));
       }
+      return;
+    }
+
+    if (!frame.ok && connectReject) {
+      if (this.shouldRetryAfterTokenMismatch(frame.error)) {
+        try {
+          await this.retryConnectAfterTokenMismatch();
+          return;
+        } catch (error) {
+          if (connectTimeout) clearTimeout(connectTimeout);
+          connectReject(this.toClientError(error));
+          return;
+        }
+      }
+
+      if (connectTimeout) clearTimeout(connectTimeout);
+      connectReject(this.createError(frame.error, 'Connection failed'));
     }
   }
 
-  private handleEvent(frame: EventFrame): void {
+  private async handleEvent(frame: EventFrame, connectReject?: (reason: Error) => void): Promise<void> {
     switch (frame.event) {
-      case 'connect.challenge':
-        // Gateway sends connect.challenge as an event, handle it here
+      case 'connect.challenge': {
         this.log('Received challenge event, sending connect request...');
-        this.sendConnectRequest();
+        const challenge = this.parseChallenge(frame.payload);
+        try {
+          await this.sendConnectRequest(challenge);
+        } catch (error) {
+          if (connectReject) {
+            connectReject(this.toClientError(error));
+          }
+        }
         break;
+      }
 
-      case 'message':
+      case 'message': {
         const msgEvent = frame.payload as MessageEvent;
         this.emit('message', msgEvent.message);
         break;
+      }
 
-      case 'stream.start':
+      case 'stream.start': {
         const startEvent = frame.payload as { messageId: string };
         this.emit('streamStart', startEvent.messageId);
         break;
+      }
 
-      case 'stream.chunk':
+      case 'stream.chunk': {
         const chunkEvent = frame.payload as StreamChunkEvent;
         this.emit('streamChunk', chunkEvent.messageId, chunkEvent.chunk);
         if (chunkEvent.done) {
           this.emit('streamEnd', chunkEvent.messageId);
         }
         break;
+      }
 
       case 'chat':
-        // OpenClaw Gateway uses 'chat' event for streaming responses
         this.handleChatEvent(frame.payload);
         break;
 
       case 'agent':
-        // Agent status updates (typing, thinking, etc.)
         this.log('Agent event:', frame.payload);
         break;
 
@@ -374,16 +403,12 @@ export class OpenClawClient {
       case 'tick':
       case 'heartbeat':
       case 'presence':
-        // System events, ignore silently
         break;
 
       default:
         this.log('Unknown event:', frame.event);
     }
   }
-
-  private currentStreamingMessageId: string | null = null;
-  private lastStreamedContent: string = '';
 
   private handleChatEvent(payload: unknown): void {
     const chatPayload = payload as {
@@ -407,15 +432,12 @@ export class OpenClawClient {
       .map((block) => block.text)
       .join('');
 
-    // Start new streaming session if needed
     if (!this.currentStreamingMessageId && chatPayload.state === 'delta') {
       this.currentStreamingMessageId = messageId;
       this.lastStreamedContent = '';
       this.emit('streamStart', messageId);
     }
 
-    // Calculate delta (new content since last event)
-    // Gateway sends cumulative content, so we extract just the new part
     if (fullContent.length > this.lastStreamedContent.length) {
       const newChunk = fullContent.slice(this.lastStreamedContent.length);
       if (newChunk && this.currentStreamingMessageId) {
@@ -424,9 +446,7 @@ export class OpenClawClient {
       this.lastStreamedContent = fullContent;
     }
 
-    // Check if streaming is complete
     if (chatPayload.state === 'final') {
-      // Emit full message
       const message: Message = {
         id: messageId,
         role: 'assistant',
@@ -436,34 +456,53 @@ export class OpenClawClient {
       this.emit('message', message);
       this.emit('streamEnd', messageId);
 
-      // Reset streaming state
       this.currentStreamingMessageId = null;
       this.lastStreamedContent = '';
     }
   }
 
-  private async sendConnectRequest(): Promise<void> {
+  private async sendConnectRequest(challenge?: ConnectChallenge): Promise<void> {
+    const provider = this.getDeviceAuthProvider();
+    const isBrowser = typeof window !== 'undefined';
+    if (isBrowser && provider && !provider.isSupported()) {
+      throw new OpenClawClientError(
+        'Device auth requires IndexedDB + WebCrypto support in browser',
+        'DEVICE_AUTH_UNSUPPORTED'
+      );
+    }
+
+    this.lastChallenge = challenge ?? this.lastChallenge;
+
     const params: ConnectParams = {
       minProtocol: 3,
       maxProtocol: 3,
       client: {
-        id: 'webchat',
+        id: this.options.clientName,
         version: this.options.clientVersion,
-        platform: typeof window !== 'undefined' ? 'browser' : 'node',
+        platform: isBrowser ? 'browser' : 'node',
         mode: 'node',
       },
       scopes: ['operator.read', 'operator.write'],
       auth: {},
     };
 
-    // Add authentication
-    if (this.deviceToken) {
+    if (challenge && provider?.isSupported()) {
+      params.device = await provider.signChallenge(challenge);
+    }
+
+    if (!this.forceSharedAuthOnce && provider?.isSupported() && !this.deviceToken) {
+      this.deviceToken = await provider.getDeviceToken();
+    }
+
+    if (this.deviceToken && !this.forceSharedAuthOnce) {
       params.auth!.deviceToken = this.deviceToken;
     } else if (this.options.token) {
       params.auth!.token = this.options.token;
     } else if (this.options.password) {
       params.auth!.password = this.options.password;
     }
+
+    this.forceSharedAuthOnce = false;
 
     this.sendFrame({
       type: 'req',
@@ -519,7 +558,6 @@ export class OpenClawClient {
     const wasConnected = this.state.connectionState === 'connected';
     this.ws = null;
 
-    // Clear all pending requests
     this.pendingRequests.forEach((pending) => {
       clearTimeout(pending.timeout);
       pending.reject(new Error('Disconnected'));
@@ -530,7 +568,6 @@ export class OpenClawClient {
       this.emit('disconnected', reason);
     }
 
-    // Auto-reconnect if enabled
     if (this.options.reconnect && this.shouldReconnect()) {
       this.scheduleReconnect();
     } else {
@@ -557,7 +594,6 @@ export class OpenClawClient {
         await this.connect();
       } catch (err) {
         this.log('Reconnect failed:', err);
-        // Will trigger handleDisconnect which schedules another reconnect
       }
     }, this.options.reconnectInterval);
   }
@@ -572,6 +608,127 @@ export class OpenClawClient {
   private setState(partial: Partial<ClientState>): void {
     this.state = { ...this.state, ...partial };
     this.emit('stateChange', this.state);
+  }
+
+  private parseChallenge(payload: unknown): ConnectChallenge | undefined {
+    const challenge = payload as Partial<ConnectChallenge> | undefined;
+    if (!challenge || typeof challenge.nonce !== 'string') {
+      return undefined;
+    }
+
+    return {
+      nonce: challenge.nonce,
+      timestamp: typeof challenge.timestamp === 'number' ? challenge.timestamp : Date.now(),
+    };
+  }
+
+  private getDeviceAuthProvider(): DeviceAuthProvider | null {
+    if (this.deviceAuthProvider) {
+      return this.deviceAuthProvider;
+    }
+
+    if (typeof window === 'undefined') {
+      return null;
+    }
+
+    this.deviceAuthProvider = createBrowserDeviceAuthProvider(this.options.gateway);
+    return this.deviceAuthProvider;
+  }
+
+  private ensureDeviceAuthSupport(): void {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const provider = this.getDeviceAuthProvider();
+    if (provider && !provider.isSupported()) {
+      throw new OpenClawClientError(
+        'Device auth requires IndexedDB + WebCrypto support in browser',
+        'DEVICE_AUTH_UNSUPPORTED'
+      );
+    }
+  }
+
+  private shouldRetryAfterTokenMismatch(error?: ErrorPayload): boolean {
+    if (this.hasRetriedTokenMismatch) {
+      return false;
+    }
+
+    const message = String(error?.message ?? '').toLowerCase();
+    if (!message) {
+      return false;
+    }
+
+    return (
+      message.includes('gateway token mismatch') ||
+      message.includes('device token mismatch') ||
+      message.includes('token mismatch')
+    );
+  }
+
+  private async retryConnectAfterTokenMismatch(): Promise<void> {
+    this.hasRetriedTokenMismatch = true;
+    this.forceSharedAuthOnce = true;
+    this.deviceToken = undefined;
+
+    const provider = this.getDeviceAuthProvider();
+    if (provider?.isSupported()) {
+      await provider.clearDeviceToken();
+    }
+
+    await this.sendConnectRequest(this.lastChallenge ?? undefined);
+  }
+
+  private classifyErrorCode(error?: ErrorPayload): OpenClawErrorCode {
+    const code = error?.code;
+    const message = String(error?.message ?? '').toLowerCase();
+
+    if (message.includes('missing scope') && message.includes('operator.write')) {
+      return 'SCOPE_MISSING_WRITE';
+    }
+
+    if (message.includes('pairing')) {
+      return 'PAIRING_REQUIRED';
+    }
+
+    if (code === 'AUTH_FAILED') {
+      return 'AUTH_FAILED';
+    }
+
+    if (code === 'INVALID_REQUEST') {
+      return 'INVALID_REQUEST';
+    }
+
+    if (code === 'PAIRING_REQUIRED') {
+      return 'PAIRING_REQUIRED';
+    }
+
+    return 'UNKNOWN';
+  }
+
+  private createError(error: ErrorPayload | undefined, fallback: string): OpenClawClientError {
+    const message = error?.message || fallback;
+    const code = this.classifyErrorCode(error);
+    return new OpenClawClientError(message, code, error?.code);
+  }
+
+  private toClientError(error: unknown): OpenClawClientError {
+    if (error instanceof OpenClawClientError) {
+      return error;
+    }
+
+    if (error instanceof Error) {
+      return new OpenClawClientError(error.message, 'UNKNOWN');
+    }
+
+    return new OpenClawClientError('Unknown error', 'UNKNOWN');
+  }
+
+  private async persistDeviceToken(token: string): Promise<void> {
+    const provider = this.getDeviceAuthProvider();
+    if (provider?.isSupported()) {
+      await provider.setDeviceToken(token);
+    }
   }
 
   private log(...args: unknown[]): void {
